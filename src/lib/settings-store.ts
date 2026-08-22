@@ -1,0 +1,89 @@
+// Waluta wyświetlania i kurs EUR/PLN. To ustawienie urządzenia, nie konta —
+// nie trafia do bazy, więc trzymamy je w localStorage.
+//
+// Zewnętrzny store zamiast useState + useEffect: serwer renderuje wartości
+// domyślne, a po zamontowaniu komponent czyta zapisane ustawienia przez
+// useSyncExternalStore. Dzięki temu nie ma kaskadowego renderu ani rozjazdu
+// hydracji, a zmiana ustawień w jednej zakładce dociera do pozostałych.
+import type { Currency } from "./money";
+
+export type Settings = { display: Currency; rateInput: string };
+
+export const DEFAULT_SETTINGS: Settings = { display: "PLN", rateInput: "4.35" };
+export const DEFAULT_RATE = 4.35;
+
+const STORAGE_KEY = "delegacje.settings";
+
+let snapshot: Settings = DEFAULT_SETTINGS;
+let loaded = false;
+
+const listeners = new Set<() => void>();
+
+function readStorage(): Settings {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return DEFAULT_SETTINGS;
+
+    const parsed = JSON.parse(raw) as Partial<Settings>;
+    return {
+      display: parsed.display === "EUR" || parsed.display === "PLN" ? parsed.display : "PLN",
+      rateInput:
+        typeof parsed.rateInput === "string" ? parsed.rateInput : DEFAULT_SETTINGS.rateInput,
+    };
+  } catch {
+    // Uszkodzony wpis w localStorage nie może wywalić aplikacji.
+    return DEFAULT_SETTINGS;
+  }
+}
+
+function emit() {
+  for (const listener of listeners) listener();
+}
+
+export function subscribeToSettings(listener: () => void): () => void {
+  // Pierwszy subskrybent pojawia się po zamontowaniu, więc dopiero tutaj
+  // localStorage jest dostępny. React sam sprawdzi snapshot po subskrypcji.
+  if (!loaded) {
+    loaded = true;
+    snapshot = readStorage();
+  }
+
+  listeners.add(listener);
+
+  const onStorage = (event: StorageEvent) => {
+    if (event.key !== null && event.key !== STORAGE_KEY) return;
+    snapshot = readStorage();
+    emit();
+  };
+  window.addEventListener("storage", onStorage);
+
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+export function getSettingsSnapshot(): Settings {
+  return snapshot;
+}
+
+/** SSR i pierwszy render na kliencie — zawsze wartości domyślne. */
+export function getServerSettingsSnapshot(): Settings {
+  return DEFAULT_SETTINGS;
+}
+
+export function updateSettings(patch: Partial<Settings>): void {
+  snapshot = { ...snapshot, ...patch };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+  } catch {
+    // Tryb prywatny bez dostępu do storage — ustawienie zadziała do przeładowania.
+  }
+  emit();
+}
+
+/** Kurs jako liczba; nieprawidłowy wpis („4,,5") wraca do wartości domyślnej. */
+export function parseRate(rateInput: string): number {
+  const parsed = Number.parseFloat(rateInput.replace(",", "."));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_RATE;
+}
