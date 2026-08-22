@@ -11,15 +11,18 @@ datasource db {
   provider = "postgresql"
 }
 
-/// Konto. Logowanie idzie na nazwę użytkownika — e-maili w aplikacji nie ma.
-/// `recovery_code_hash` to jedyna droga odzyskania hasła bez pomocy właściciela firmy.
+/// Konto. Logowanie idzie na adres e-mail; `name` to imię lub pseudonim
+/// pokazywany w aplikacji i na karcie pracownika.
+///
+/// Adresu na razie nie weryfikujemy i nic na niego nie wysyłamy — dlatego
+/// `recovery_code_hash` zostaje jedyną drogą odzyskania hasła bez pomocy
+/// właściciela firmy.
 model User {
   id                   String   @id @default(uuid()) @db.Uuid
-  username             String   @unique
+  email                String   @unique
+  name                 String
   password_hash        String
   recovery_code_hash   String
-  first_name           String?
-  last_name            String?
   is_owner             Boolean  @default(false)
   /// Firma, w której pracuje — ustawiane dopiero po akceptacji przez właściciela.
   company_id           String?  @db.Uuid

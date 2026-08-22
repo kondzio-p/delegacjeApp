@@ -235,9 +235,8 @@ export function monthLabel(monthKey: string): string {
 
 export type EmployeeCard = {
   id: string;
-  username: string;
-  first_name: string | null;
-  last_name: string | null;
+  email: string;
+  name: string;
   monthHours: number;
   onTrip: boolean;
   lastEntry: { work_date: string; start_time: string; end_time: string } | null;
@@ -245,21 +244,19 @@ export type EmployeeCard = {
 
 export type JoinRequestRow = {
   user_id: string;
-  username: string;
-  first_name: string | null;
-  last_name: string | null;
+  email: string;
+  name: string;
   created_at: string;
 };
 
 export async function getCompanyEmployees(companyId: string): Promise<EmployeeCard[]> {
   const employees = await prisma.user.findMany({
     where: { company_id: companyId },
-    orderBy: [{ first_name: "asc" }, { username: "asc" }],
+    orderBy: { name: "asc" },
     select: {
       id: true,
-      username: true,
-      first_name: true,
-      last_name: true,
+      email: true,
+      name: true,
       work_entries: {
         orderBy: [{ work_date: "desc" }, { start_time: "desc" }],
         select: { work_date: true, start_time: true, end_time: true },
@@ -272,9 +269,8 @@ export async function getCompanyEmployees(companyId: string): Promise<EmployeeCa
 
   return employees.map((employee) => ({
     id: employee.id,
-    username: employee.username,
-    first_name: employee.first_name,
-    last_name: employee.last_name,
+    email: employee.email,
+    name: employee.name,
     monthHours: employee.work_entries
       .filter((entry) => entry.work_date.startsWith(month))
       .reduce((sum, entry) => sum + hoursBetween(entry.start_time, entry.end_time), 0),
@@ -289,15 +285,14 @@ export async function getJoinRequests(companyId: string): Promise<JoinRequestRow
     orderBy: { created_at: "asc" },
     select: {
       created_at: true,
-      user: { select: { id: true, username: true, first_name: true, last_name: true } },
+      user: { select: { id: true, email: true, name: true } },
     },
   });
 
   return rows.map((row) => ({
     user_id: row.user.id,
-    username: row.user.username,
-    first_name: row.user.first_name,
-    last_name: row.user.last_name,
+    email: row.user.email,
+    name: row.user.name,
     created_at: row.created_at.toISOString(),
   }));
 }

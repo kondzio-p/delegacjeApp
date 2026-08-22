@@ -1,10 +1,11 @@
-// Uwierzytelnianie na własnej bazie: nazwa użytkownika + hasło, bez e-maili.
+// Uwierzytelnianie na własnej bazie: adres e-mail + hasło.
 //
 // Hasło:  scrypt z losową solą (node:crypto, zero zależności natywnych).
 // Sesja:  losowy token w ciasteczku httpOnly; w bazie leży wyłącznie jego
 //         SHA-256, więc podgląd tabeli `sessions` nie pozwala przejąć konta.
-// Kod odzyskiwania: jedyna droga do zresetowania zapomnianego hasła bez
-//         właściciela firmy — też trzymany wyłącznie jako hash.
+// Kod odzyskiwania: na adres e-mail nic nie wysyłamy, więc to jedyna droga do
+//         zresetowania zapomnianego hasła bez właściciela firmy — też trzymany
+//         wyłącznie jako hash.
 import "server-only";
 
 import { createHash, randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
@@ -32,9 +33,8 @@ const RESET_PASSWORD_LENGTH = 7;
 
 export const SESSION_USER_SELECT = {
   id: true,
-  username: true,
-  first_name: true,
-  last_name: true,
+  email: true,
+  name: true,
   is_owner: true,
   company_id: true,
   must_change_password: true,
@@ -82,8 +82,9 @@ export function normalizeRecoveryCode(code: string): string {
   return code.replace(/[\s-]/g, "").toUpperCase();
 }
 
-export function normalizeUsername(username: string): string {
-  return username.trim().toLowerCase();
+/** Adresy porównujemy bez względu na wielkość liter i przypadkowe spacje. */
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
 }
 
 /* -------------------------------------------------------------- sesje */

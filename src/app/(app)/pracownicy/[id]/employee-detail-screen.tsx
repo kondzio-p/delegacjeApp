@@ -29,11 +29,11 @@ import { convert, formatDate, formatHours, formatMoney, hoursBetween } from "@/l
 import type { Currency } from "@/lib/money";
 import { printDocument } from "@/lib/print";
 import { tripLabel } from "@/lib/trip-summary";
-import { displayName, type Trip, type WorkEntry } from "@/lib/types";
+import type { Trip, WorkEntry } from "@/lib/types";
 
 const ALL_MONTHS = "all";
 
-type Employee = { id: string; username: string; first_name: string | null; last_name: string | null };
+type Employee = { id: string; email: string; name: string };
 
 function monthKeyOfEntry(entry: WorkEntry): string {
   return entry.work_date.slice(0, 7);
@@ -121,7 +121,7 @@ export function EmployeeDetailScreen({
         </Link>
         <button
           type="button"
-          onClick={() => printDocument(`Godziny_${employee.username}`)}
+          onClick={() => printDocument(`Godziny_${employee.name}`)}
           aria-label="Eksportuj do PDF"
           className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-card px-4 text-sm font-semibold active:bg-secondary"
         >
@@ -131,7 +131,7 @@ export function EmployeeDetailScreen({
 
       {/* Nagłówek widoczny wyłącznie w PDF/na wydruku. */}
       <div className="print-only mb-4">
-        <h1 className="text-xl font-bold">Godziny pracy — {displayName(employee)}</h1>
+        <h1 className="text-xl font-bold">Godziny pracy — {employee.name}</h1>
         <p className="text-sm">
           {month === ALL_MONTHS ? "Wszystkie wpisy" : monthName(month)} · razem{" "}
           {formatHours(totals.hours)}
@@ -139,8 +139,8 @@ export function EmployeeDetailScreen({
       </div>
 
       <section className="mt-4 rounded-2xl bg-card p-4">
-        <p className="break-words text-lg font-semibold">{displayName(employee)}</p>
-        <p className="mt-1 break-all text-sm text-muted-foreground">@{employee.username}</p>
+        <p className="break-words text-lg font-semibold">{employee.name}</p>
+        <p className="mt-1 break-all text-sm text-muted-foreground">{employee.email}</p>
       </section>
 
       <section className="no-print mt-4 rounded-2xl bg-card p-4">
@@ -474,8 +474,8 @@ function ResetPasswordModal({
       {state.password ? (
         <>
           <p className="text-sm text-muted-foreground">
-            Nowe hasło dla <span className="font-semibold text-foreground">@{employee.username}</span>.
-            Przekaż je pracownikowi — po zalogowaniu powinien ustawić własne w Ustawieniach.
+            Nowe hasło dla <span className="font-semibold text-foreground">{employee.name}</span> (
+            {employee.email}). Przekaż je pracownikowi — po zalogowaniu powinien ustawić własne w Ustawieniach.
           </p>
           <p className="rounded-xl bg-secondary p-4 text-center font-mono text-2xl font-bold tracking-widest">
             {state.password}

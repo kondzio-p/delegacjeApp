@@ -51,10 +51,13 @@ npm run dev        # http://localhost:3000
 
 ### 4. Pierwsze uruchomienie w przeglądarce
 
-1. **Rejestracja** — nazwa użytkownika + hasło (dwa razy).
+1. **Rejestracja** — e-mail, Imię/Pseudonim i hasło (dwa razy).
+   Adres e-mail służy na razie wyłącznie do logowania — nic na niego nie wysyłamy
+   i nie trzeba go potwierdzać.
 2. Zapisz **kod odzyskiwania**, który pokaże się po założeniu konta.
    To jedyny sposób odzyskania konta po zapomnieniu hasła — nie da się go później podejrzeć.
-3. **Ustawienia → Konto** — uzupełnij imię i nazwisko (widzi je właściciel firmy).
+3. Po zalogowaniu zobaczysz ekran powitalny **„Witaj, [Imię]"** i przejdziesz na dashboard.
+   Imię jest też cały czas widoczne w górnym pasku i w menu.
 4. Dodaj podróż, godziny pracy, koszt i wypłatę. Dashboard od razu pokaże trzy sekcje.
 
 ### 5. Firma i pracownicy
@@ -65,13 +68,13 @@ npm run dev        # http://localhost:3000
 3. Podaj pracownikom dokładną nazwę firmy.
 
 **Pracownik:**
-1. Zakłada własne konto.
+1. Zakłada własne konto (e-mail + Imię/Pseudonim).
 2. **Ustawienia → Firma → Pracuję w firmie** → wpisuje nazwę → **Wyślij prośbę**.
    (Wielkość liter nie ma znaczenia.)
 
 **Właściciel** widzi prośbę na górze zakładki Pracownicy i klika **Akceptuj**.
-Od tej chwili widzi kartę pracownika (godziny w tym miesiącu, status delegacji,
-ostatni wpis), a po wejściu w kartę — pełne zestawienie godzin z filtrem miesiąca,
+Od tej chwili widzi kartę pracownika (imię, e-mail, godziny w tym miesiącu,
+status delegacji, ostatni wpis), a po wejściu w kartę — pełne zestawienie godzin z filtrem miesiąca,
 podziałem na delegacje, edycją wpisów, eksportem PDF i resetem hasła.
 
 Właściciel **nie widzi** kosztów ani wypłat pracownika.
@@ -139,11 +142,26 @@ należy do jego firmy.
 
 ---
 
+## Migracja ze starszej wersji (logowanie na nazwę użytkownika)
+
+Jeśli masz konta założone przed przejściem na e-mail, `npm run db:deploy` przeniesie
+je automatycznie:
+
+- e-mail zostaje ustawiony na zastępczy `nazwa-uzytkownika@brak-adresu.local`
+  (tym adresem można się od razu zalogować),
+- imię bierze się z dotychczasowego imienia i nazwiska, a gdy były puste —
+  z nazwy użytkownika.
+
+Po pierwszym zalogowaniu wejdź w **Ustawienia → Konto** i wpisz prawdziwy adres.
+
+---
+
 ## Ograniczenia, o których warto wiedzieć
 
-- Bez adresu e-mail jedyną drogą odzyskania konta jest **kod odzyskiwania** albo
-  reset hasła przez właściciela firmy. Kto zgubi kod i nie należy do firmy —
-  nie odzyska dostępu.
+- Adres e-mail nie jest weryfikowany i **nic na niego nie wychodzi** — to na razie
+  tylko login. Dopóki tak zostanie, jedyną drogą odzyskania konta jest **kod
+  odzyskiwania** albo reset hasła przez właściciela firmy. Kto zgubi kod i nie
+  należy do firmy — nie odzyska dostępu.
 - Nazwa firmy jest unikalna w całej aplikacji (bez rozróżniania wielkości liter).
 - Wyłączenie trybu właściciela kasuje firmę i odpina od niej pracowników.
   Ich konta, godziny i finanse zostają nietknięte.

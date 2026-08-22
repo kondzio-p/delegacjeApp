@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/ui";
 import { acceptJoinRequestAction, rejectJoinRequestAction } from "@/lib/actions/company";
 import { formatDate, formatHours } from "@/lib/money";
 import type { EmployeeCard, JoinRequestRow } from "@/lib/queries";
-import { displayName, type ActionState } from "@/lib/types";
+import type { ActionState } from "@/lib/types";
 
 export function EmployeesScreen({
   companyName,
@@ -45,8 +45,8 @@ export function EmployeesScreen({
                     <UserRound className="h-5 w-5 text-primary" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">{displayName(request)}</p>
-                    <p className="truncate text-xs text-muted-foreground">@{request.username}</p>
+                    <p className="truncate text-sm font-semibold">{request.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{request.email}</p>
                   </div>
                 </div>
                 <div className="mt-3 flex gap-2">
@@ -95,7 +95,7 @@ export function EmployeesScreen({
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <p className="min-w-0 truncate text-sm font-semibold">{displayName(employee)}</p>
+                <p className="min-w-0 truncate text-sm font-semibold">{employee.name}</p>
                 {employee.onTrip ? (
                   <span className="flex shrink-0 items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
                     <Plane className="h-3 w-3" /> w delegacji

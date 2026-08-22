@@ -109,29 +109,30 @@ function ProfileSection({ user }: { user: SessionUser }) {
         </h2>
       </div>
 
-      <p className="mt-3 break-all text-base font-medium">{user.username}</p>
-
-      <form action={formAction} className="mt-4 space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Imię">
-            <input
-              name="first_name"
-              defaultValue={user.first_name ?? ""}
-              maxLength={60}
-              className="input-field input-field-compact"
-            />
-          </Field>
-          <Field label="Nazwisko">
-            <input
-              name="last_name"
-              defaultValue={user.last_name ?? ""}
-              maxLength={60}
-              className="input-field input-field-compact"
-            />
-          </Field>
-        </div>
+      <form action={formAction} className="mt-3 space-y-4">
+        <Field label="Imię / Pseudonim">
+          <input
+            name="name"
+            defaultValue={user.name}
+            minLength={2}
+            maxLength={40}
+            required
+            className="input-field"
+          />
+        </Field>
+        <Field label="E-mail (login)">
+          <input
+            type="email"
+            name="email"
+            defaultValue={user.email}
+            autoComplete="email"
+            required
+            className="input-field"
+          />
+        </Field>
         <p className="text-xs text-muted-foreground">
-          Imię i nazwisko widzi właściciel firmy na Twojej karcie pracownika.
+          Imieniem podpisana jest Twoja karta u właściciela firmy. Adresu e-mail na razie nie
+          weryfikujemy i nic na niego nie wysyłamy — służy tylko do logowania.
         </p>
         <FormMessage error={state.error} />
         <button

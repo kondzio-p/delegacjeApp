@@ -236,6 +236,39 @@
   padding-inline: 0.75rem;
 }
 
+/* ------------------------------------------------------------- powitanie */
+
+/*
+ * Ekran „Witaj, [Imię]": płynne pojawienie się, chwila pauzy i zniknięcie.
+ * Całość w CSS, żeby przejście nie zależało od cyklu renderowania Reacta.
+ */
+@keyframes welcome-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+  25%,
+  70% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-0.75rem);
+  }
+}
+
+@utility animate-welcome {
+  animation: welcome-fade 2s ease-in-out both;
+}
+
+/* Kto wyłączył animacje w systemie, dostaje sam napis. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-welcome {
+    animation: none;
+  }
+}
+
 /* ------------------------------------------------------------------ druk */
 
 /* Blok widoczny wyłącznie na wydruku / w PDF (nagłówek dokumentu). */

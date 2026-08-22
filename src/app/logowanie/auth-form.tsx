@@ -8,6 +8,7 @@ import { useActionState, useState } from "react";
 import { RecoveryCodeDialog } from "@/components/recovery-code-dialog";
 import { FormMessage } from "@/components/ui";
 import { loginAction, registerAction, type CodeState } from "@/lib/actions/auth";
+import { WELCOME_PATH } from "@/lib/routes";
 import type { ActionState } from "@/lib/types";
 
 const EMPTY: ActionState = {};
@@ -63,7 +64,14 @@ function LoginForm() {
 
   return (
     <form action={formAction} className="space-y-4">
-      <TextField label="Nazwa użytkownika" name="username" autoComplete="username" required />
+      <TextField
+        label="E-mail"
+        name="email"
+        type="email"
+        autoComplete="email"
+        placeholder="jan@example.com"
+        required
+      />
       <TextField
         label="Hasło"
         name="password"
@@ -85,10 +93,20 @@ function RegisterForm() {
     <>
       <form action={formAction} className="space-y-4">
         <TextField
-          label="Nazwa użytkownika"
-          name="username"
-          autoComplete="username"
-          minLength={3}
+          label="E-mail"
+          name="email"
+          type="email"
+          autoComplete="email"
+          placeholder="jan@example.com"
+          required
+        />
+        <TextField
+          label="Imię / Pseudonim"
+          name="name"
+          autoComplete="given-name"
+          placeholder="Jan"
+          minLength={2}
+          maxLength={40}
           required
         />
         <TextField
@@ -108,8 +126,9 @@ function RegisterForm() {
           required
         />
         <p className="rounded-xl bg-secondary px-4 py-3 text-xs text-muted-foreground">
-          Aplikacja nie zbiera adresów e-mail. Po założeniu konta dostaniesz kod odzyskiwania —
-          jedyny sposób na odzyskanie dostępu po zapomnieniu hasła.
+          Na adres e-mail nic jeszcze nie wysyłamy — służy tylko do logowania. Po założeniu konta
+          dostaniesz kod odzyskiwania, na razie jedyny sposób na odzyskanie dostępu po zapomnieniu
+          hasła.
         </p>
         <FormMessage error={state.error} />
         <SubmitButton pending={pending}>Załóż konto</SubmitButton>
@@ -119,7 +138,7 @@ function RegisterForm() {
         <RecoveryCodeDialog
           code={state.recoveryCode}
           onClose={() => {
-            router.replace("/");
+            router.replace(WELCOME_PATH);
             router.refresh();
           }}
         />

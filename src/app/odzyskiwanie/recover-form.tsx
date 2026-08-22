@@ -8,6 +8,7 @@ import { useActionState } from "react";
 import { RecoveryCodeDialog } from "@/components/recovery-code-dialog";
 import { FormMessage } from "@/components/ui";
 import { recoverAction, type CodeState } from "@/lib/actions/auth";
+import { WELCOME_PATH } from "@/lib/routes";
 
 import { SubmitButton, TextField } from "../logowanie/auth-form";
 
@@ -32,7 +33,14 @@ export function RecoverForm() {
         </div>
 
         <form action={formAction} className="space-y-4 rounded-2xl bg-card p-5">
-          <TextField label="Nazwa użytkownika" name="username" autoComplete="username" required />
+          <TextField
+            label="E-mail"
+            name="email"
+            type="email"
+            autoComplete="email"
+            placeholder="jan@example.com"
+            required
+          />
           <TextField
             label="Kod odzyskiwania"
             name="code"
@@ -74,7 +82,7 @@ export function RecoverForm() {
             code={state.recoveryCode}
             title="Zapisz nowy kod odzyskiwania"
             onClose={() => {
-              router.replace("/");
+              router.replace(WELCOME_PATH);
               router.refresh();
             }}
           />

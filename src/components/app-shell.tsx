@@ -16,6 +16,7 @@ import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
 import { logoutAction } from "@/lib/actions/auth";
+import type { SessionUser } from "@/lib/types";
 
 const BASE_NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -29,18 +30,18 @@ const EMPLOYEES_NAV = { href: "/pracownicy", label: "Pracownicy", icon: Users } 
 
 export function AppShell({
   title,
-  isOwner,
+  user,
   children,
 }: {
   title: string;
-  isOwner: boolean;
+  user: SessionUser;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
   // Pozycja Pracownicy pojawia się dopiero po włączeniu trybu właściciela.
-  const nav = [...BASE_NAV, ...(isOwner ? [EMPLOYEES_NAV] : []), SETTINGS_NAV];
+  const nav = [...BASE_NAV, ...(user.is_owner ? [EMPLOYEES_NAV] : []), SETTINGS_NAV];
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -53,7 +54,12 @@ export function AppShell({
         >
           <Menu className="h-6 w-6" />
         </button>
-        <h1 className="truncate text-center text-lg font-semibold">{title}</h1>
+        <div className="min-w-0 text-center">
+          <p className="truncate text-xs text-muted-foreground">
+            Witaj, <span className="font-medium text-foreground">{user.name}</span>
+          </p>
+          <h1 className="truncate text-base font-semibold leading-tight">{title}</h1>
+        </div>
         <span />
       </header>
 
@@ -70,8 +76,11 @@ export function AppShell({
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
-          <span className="text-base font-semibold">Delegacje</span>
+        <div className="flex h-16 items-center justify-between gap-2 border-b border-sidebar-border px-4">
+          <div className="min-w-0">
+            <p className="truncate text-base font-semibold">Witaj, {user.name}</p>
+            <p className="truncate text-xs text-muted-foreground">Delegacje</p>
+          </div>
           <button
             type="button"
             aria-label="Zamknij menu"

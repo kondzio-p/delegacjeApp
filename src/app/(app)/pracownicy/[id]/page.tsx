@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { getTrips, getWorkEntries } from "@/lib/queries";
 import { findMyEmployee, requireOwner } from "@/lib/session";
-import { displayName } from "@/lib/types";
 
 import { EmployeeDetailScreen } from "./employee-detail-screen";
 
@@ -28,7 +27,7 @@ export default async function EmployeeDetailPage({
   const [entries, trips] = await Promise.all([getWorkEntries(employee.id), getTrips(employee.id)]);
 
   return (
-    <AppShell title={displayName(employee)} isOwner={user.is_owner}>
+    <AppShell title={employee.name} user={user}>
       <EmployeeDetailScreen employee={employee} entries={entries} trips={trips} />
     </AppShell>
   );

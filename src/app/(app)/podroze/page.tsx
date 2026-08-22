@@ -16,7 +16,7 @@ export default async function TripsPage() {
   const trips = await getTrips(user.id);
 
   return (
-    <AppShell title="Podróże" isOwner={user.is_owner}>
+    <AppShell title="Podróże" user={user}>
       <TripsScreen trips={trips} />
     </AppShell>
   );

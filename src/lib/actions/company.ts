@@ -191,7 +191,7 @@ export async function resetEmployeePasswordAction(
 
   const employee = await prisma.user.findFirst({
     where: { id: parsed.data, company_id: company.id },
-    select: { id: true, username: true },
+    select: { id: true, name: true },
   });
   if (!employee) return fail("Nie znaleziono pracownika");
 
@@ -203,5 +203,5 @@ export async function resetEmployeePasswordAction(
   // Stare sesje pracownika przestają działać razem ze starym hasłem.
   await endAllSessions(employee.id);
 
-  return { password, employeeName: employee.username };
+  return { password, employeeName: employee.name };
 }

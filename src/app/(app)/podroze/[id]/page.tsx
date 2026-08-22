@@ -26,7 +26,7 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
   ]);
 
   return (
-    <AppShell title="Podsumowanie podróży" isOwner={user.is_owner}>
+    <AppShell title="Podsumowanie podróży" user={user}>
       <TripDetailScreen
         trip={trip}
         workEntries={workEntries}

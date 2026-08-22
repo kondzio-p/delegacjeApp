@@ -16,7 +16,7 @@ export default async function SettingsPage() {
   const status = await getCompanyStatus(user);
 
   return (
-    <AppShell title="Ustawienia" isOwner={user.is_owner}>
+    <AppShell title="Ustawienia" user={user}>
       <SettingsScreen user={user} status={status} />
     </AppShell>
   );

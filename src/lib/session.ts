@@ -50,6 +50,6 @@ export async function findMyEmployee(employeeId: string) {
   const { company } = await requireOwner();
   return prisma.user.findFirst({
     where: { id: employeeId, company_id: company.id },
-    select: { id: true, username: true, first_name: true, last_name: true },
+    select: { id: true, email: true, name: true },
   });
 }

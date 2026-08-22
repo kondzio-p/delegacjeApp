@@ -42,9 +42,9 @@ export type Payout = {
 
 export type SessionUser = {
   id: string;
-  username: string;
-  first_name: string | null;
-  last_name: string | null;
+  email: string;
+  /** Imię albo pseudonim — tym podpisujemy użytkownika w całej aplikacji. */
+  name: string;
   is_owner: boolean;
   company_id: string | null;
   must_change_password: boolean;
@@ -52,12 +52,3 @@ export type SessionUser = {
 
 /** Wynik akcji formularza — wspólny kształt dla useActionState. */
 export type ActionState = { error?: string; success?: string };
-
-export function displayName(user: {
-  username: string;
-  first_name: string | null;
-  last_name: string | null;
-}): string {
-  const full = [user.first_name, user.last_name].filter(Boolean).join(" ").trim();
-  return full || user.username;
-}

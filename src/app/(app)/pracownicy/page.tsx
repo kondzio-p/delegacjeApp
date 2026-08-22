@@ -19,7 +19,7 @@ export default async function EmployeesPage() {
   ]);
 
   return (
-    <AppShell title="Pracownicy" isOwner={user.is_owner}>
+    <AppShell title="Pracownicy" user={user}>
       <EmployeesScreen
         companyName={company.name}
         employees={employees}

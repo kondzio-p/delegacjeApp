@@ -16,7 +16,7 @@ export default async function WorkPage() {
   const [trips, entries] = await Promise.all([getTrips(user.id), getWorkEntries(user.id)]);
 
   return (
-    <AppShell title="Godziny Pracy" isOwner={user.is_owner}>
+    <AppShell title="Godziny Pracy" user={user}>
       <WorkEntriesScreen trips={trips} entries={entries} />
     </AppShell>
   );

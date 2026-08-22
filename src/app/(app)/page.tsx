@@ -21,7 +21,7 @@ export default async function DashboardPage() {
   ]);
 
   return (
-    <AppShell title="Dashboard" isOwner={user.is_owner}>
+    <AppShell title="Dashboard" user={user}>
       <DashboardScreen
         trips={trips}
         workEntries={workEntries}

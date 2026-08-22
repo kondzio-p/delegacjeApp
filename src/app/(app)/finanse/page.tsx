@@ -20,7 +20,7 @@ export default async function FinancePage() {
   ]);
 
   return (
-    <AppShell title="Finanse" isOwner={user.is_owner}>
+    <AppShell title="Finanse" user={user}>
       <FinanceScreen trips={trips} expenses={expenses} payouts={payouts} />
     </AppShell>
   );
