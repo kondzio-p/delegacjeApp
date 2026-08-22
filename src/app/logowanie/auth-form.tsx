@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 
+import { LanguagePicker } from "@/components/language-picker";
+import { useT } from "@/components/locale-provider";
 import { RecoveryCodeDialog } from "@/components/recovery-code-dialog";
 import { FormMessage } from "@/components/ui";
 import { loginAction, registerAction, type CodeState } from "@/lib/actions/auth";
@@ -16,18 +18,19 @@ const EMPTY_CODE: CodeState = {};
 
 export function AuthForm() {
   const [mode, setMode] = useState<"login" | "register">("login");
+  const t = useT();
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+    <div className="relative flex min-h-screen items-center justify-center bg-background px-4 py-10">
+      <LanguagePicker className="absolute right-3 top-3" />
+
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary">
             <Plane className="h-7 w-7 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Delegacje</h1>
-          <p className="text-sm text-muted-foreground">
-            Rozliczaj czas pracy, koszty i realny zysk z wyjazdów.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("auth.tagline")}</p>
         </div>
 
         <div className="rounded-2xl bg-card p-5">
@@ -41,7 +44,7 @@ export function AuthForm() {
                   mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground"
                 }`}
               >
-                {m === "login" ? "Logowanie" : "Rejestracja"}
+                {m === "login" ? t("auth.login") : t("auth.register")}
               </button>
             ))}
           </div>
@@ -51,7 +54,7 @@ export function AuthForm() {
 
         <p className="mt-4 text-center text-sm text-muted-foreground">
           <Link href="/odzyskiwanie" className="font-medium text-primary">
-            Nie pamiętam hasła
+            {t("auth.forgotPassword")}
           </Link>
         </p>
       </div>
@@ -61,11 +64,12 @@ export function AuthForm() {
 
 function LoginForm() {
   const [state, formAction, pending] = useActionState(loginAction, EMPTY);
+  const t = useT();
 
   return (
     <form action={formAction} className="space-y-4">
       <TextField
-        label="E-mail"
+        label={t("auth.email")}
         name="email"
         type="email"
         autoComplete="email"
@@ -73,14 +77,14 @@ function LoginForm() {
         required
       />
       <TextField
-        label="Hasło"
+        label={t("auth.password")}
         name="password"
         type="password"
         autoComplete="current-password"
         required
       />
       <FormMessage error={state.error} />
-      <SubmitButton pending={pending}>Zaloguj się</SubmitButton>
+      <SubmitButton pending={pending}>{t("auth.submitLogin")}</SubmitButton>
     </form>
   );
 }
@@ -88,12 +92,13 @@ function LoginForm() {
 function RegisterForm() {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(registerAction, EMPTY_CODE);
+  const t = useT();
 
   return (
     <>
       <form action={formAction} className="space-y-4">
         <TextField
-          label="E-mail"
+          label={t("auth.email")}
           name="email"
           type="email"
           autoComplete="email"
@@ -101,16 +106,16 @@ function RegisterForm() {
           required
         />
         <TextField
-          label="Imię / Pseudonim"
+          label={t("auth.name")}
           name="name"
           autoComplete="given-name"
-          placeholder="Jan"
+          placeholder={t("auth.namePlaceholder")}
           minLength={2}
           maxLength={40}
           required
         />
         <TextField
-          label="Hasło"
+          label={t("auth.password")}
           name="password"
           type="password"
           autoComplete="new-password"
@@ -118,7 +123,7 @@ function RegisterForm() {
           required
         />
         <TextField
-          label="Powtórz hasło"
+          label={t("auth.confirmPassword")}
           name="confirm"
           type="password"
           autoComplete="new-password"
@@ -126,12 +131,10 @@ function RegisterForm() {
           required
         />
         <p className="rounded-xl bg-secondary px-4 py-3 text-xs text-muted-foreground">
-          Na adres e-mail nic jeszcze nie wysyłamy — służy tylko do logowania. Po założeniu konta
-          dostaniesz kod odzyskiwania, na razie jedyny sposób na odzyskanie dostępu po zapomnieniu
-          hasła.
+          {t("auth.registerNote")}
         </p>
         <FormMessage error={state.error} />
-        <SubmitButton pending={pending}>Załóż konto</SubmitButton>
+        <SubmitButton pending={pending}>{t("auth.submitRegister")}</SubmitButton>
       </form>
 
       {state.recoveryCode && (

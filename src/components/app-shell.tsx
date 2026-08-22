@@ -12,43 +12,65 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, type ReactNode } from "react";
 
+import { LanguagePicker } from "@/components/language-picker";
+import { useT } from "@/components/locale-provider";
 import { logoutAction } from "@/lib/actions/auth";
+import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import type { SessionUser } from "@/lib/types";
 
 const BASE_NAV = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/podroze", label: "Podróże", icon: Plane },
-  { href: "/godziny", label: "Godziny Pracy", icon: Clock },
-  { href: "/finanse", label: "Finanse", icon: Wallet },
-] as const;
+  { href: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { href: "/podroze", labelKey: "nav.trips", icon: Plane },
+  { href: "/godziny", labelKey: "nav.hours", icon: Clock },
+  { href: "/finanse", labelKey: "nav.finance", icon: Wallet },
+] as const satisfies readonly { href: string; labelKey: TranslationKey; icon: unknown }[];
 
-const SETTINGS_NAV = { href: "/ustawienia", label: "Ustawienia", icon: Settings } as const;
-const EMPLOYEES_NAV = { href: "/pracownicy", label: "Pracownicy", icon: Users } as const;
+const SETTINGS_NAV = { href: "/ustawienia", labelKey: "nav.settings", icon: Settings } as const;
+const EMPLOYEES_NAV = { href: "/pracownicy", labelKey: "nav.employees", icon: Users } as const;
 
-export function AppShell({
-  title,
-  user,
-  children,
-}: {
-  title: string;
-  user: SessionUser;
-  children: ReactNode;
-}) {
+/**
+ * Tytuł w nagłówku bierze się ze ścieżki, a nie z propsa strony — dzięki temu
+ * powłoka siedzi w layoucie i nie przeładowuje się przy zmianie widoku.
+ */
+function titleKeyFor(pathname: string): TranslationKey {
+  if (pathname === "/") return "nav.dashboard";
+  if (pathname.startsWith("/podroze/")) return "title.tripDetail";
+  if (pathname === "/podroze") return "nav.trips";
+  if (pathname.startsWith("/godziny")) return "nav.hours";
+  if (pathname.startsWith("/finanse")) return "nav.finance";
+  if (pathname.startsWith("/pracownicy/")) return "title.employee";
+  if (pathname === "/pracownicy") return "nav.employees";
+  if (pathname.startsWith("/ustawienia")) return "nav.settings";
+  return "nav.dashboard";
+}
+
+export function AppShell({ user, children }: { user: SessionUser; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const t = useT();
 
   // Pozycja Pracownicy pojawia się dopiero po włączeniu trybu właściciela.
   const nav = [...BASE_NAV, ...(user.is_owner ? [EMPLOYEES_NAV] : []), SETTINGS_NAV];
+
+  // Menu jest wysunięte poza ekran, więc automatyczny prefetch <Link> (oparty na
+  // widoczności) nigdy się nie odpala. Grzejemy trasy ręcznie, gdy tylko szuflada
+  // się otworzy — zanim użytkownik zdąży kliknąć, RSC jest już pobrany.
+  useEffect(() => {
+    if (!open) return;
+    for (const item of nav) router.prefetch(item.href);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- nav to nowa tablica przy każdym renderze
+  }, [open, router, user.is_owner]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="no-print fixed inset-x-0 top-0 z-30 grid h-16 grid-cols-[3rem_minmax(0,1fr)_3rem] items-center border-b border-border bg-card/95 px-2 backdrop-blur">
         <button
           type="button"
-          aria-label="Otwórz menu"
+          aria-label={t("shell.openMenu")}
           onClick={() => setOpen(true)}
           className="flex h-12 w-12 items-center justify-center rounded-xl text-foreground active:bg-secondary"
         >
@@ -56,11 +78,13 @@ export function AppShell({
         </button>
         <div className="min-w-0 text-center">
           <p className="truncate text-xs text-muted-foreground">
-            Witaj, <span className="font-medium text-foreground">{user.name}</span>
+            {t("shell.greeting", { name: user.name })}
           </p>
-          <h1 className="truncate text-base font-semibold leading-tight">{title}</h1>
+          <h1 className="truncate text-base font-semibold leading-tight">
+            {t(titleKeyFor(pathname))}
+          </h1>
         </div>
-        <span />
+        <LanguagePicker className="justify-self-end" />
       </header>
 
       {open && (
@@ -78,12 +102,14 @@ export function AppShell({
       >
         <div className="flex h-16 items-center justify-between gap-2 border-b border-sidebar-border px-4">
           <div className="min-w-0">
-            <p className="truncate text-base font-semibold">Witaj, {user.name}</p>
+            <p className="truncate text-base font-semibold">
+              {t("shell.greeting", { name: user.name })}
+            </p>
             <p className="truncate text-xs text-muted-foreground">Delegacje</p>
           </div>
           <button
             type="button"
-            aria-label="Zamknij menu"
+            aria-label={t("shell.closeMenu")}
             onClick={() => setOpen(false)}
             className="flex h-11 w-11 items-center justify-center rounded-xl active:bg-sidebar-accent"
           >
@@ -107,7 +133,7 @@ export function AppShell({
                 }`}
               >
                 <item.icon className="h-5 w-5 shrink-0" />
-                <span className="truncate">{item.label}</span>
+                <span className="truncate">{t(item.labelKey)}</span>
               </Link>
             );
           })}
@@ -120,7 +146,7 @@ export function AppShell({
               className="flex w-full items-center gap-3 rounded-xl px-4 py-4 text-base font-medium text-destructive active:bg-sidebar-accent"
             >
               <LogOut className="h-5 w-5" />
-              Wyloguj
+              {t("shell.logout")}
             </button>
           </form>
         </div>

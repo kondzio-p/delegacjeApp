@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { useT } from "@/components/locale-provider";
 import {
   formatDate,
   formatDateTime,
@@ -106,11 +107,12 @@ export function CategoryBreakdown({
   byCategory: { category: string; total: number }[];
   display: Currency;
 }) {
+  const t = useT();
   if (byCategory.length === 0) return null;
   return (
     <section className="mt-4 rounded-2xl bg-card p-4">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        Koszty wg kategorii
+        {t("summary.byCategory")}
       </h2>
       <div className="space-y-2">
         {byCategory.map((row) => (

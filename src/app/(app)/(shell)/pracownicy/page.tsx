@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { AppShell } from "@/components/app-shell";
 import { getCompanyEmployees, getJoinRequests, monthKeyOf, monthLabel } from "@/lib/queries";
 import { requireOwner } from "@/lib/session";
 
@@ -12,20 +11,18 @@ export const metadata: Metadata = {
 };
 
 export default async function EmployeesPage() {
-  const { user, company } = await requireOwner();
+  const { company } = await requireOwner();
   const [employees, requests] = await Promise.all([
     getCompanyEmployees(company.id),
     getJoinRequests(company.id),
   ]);
 
   return (
-    <AppShell title="Pracownicy" user={user}>
-      <EmployeesScreen
-        companyName={company.name}
-        employees={employees}
-        requests={requests}
-        monthName={monthLabel(monthKeyOf())}
-      />
-    </AppShell>
+    <EmployeesScreen
+      companyName={company.name}
+      employees={employees}
+      requests={requests}
+      monthName={monthLabel(monthKeyOf())}
+    />
   );
 }

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { AppShell } from "@/components/app-shell";
 import { getExpenses, getPayouts, getTrip, getWorkEntries } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 
@@ -26,13 +25,11 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
   ]);
 
   return (
-    <AppShell title="Podsumowanie podróży" user={user}>
-      <TripDetailScreen
-        trip={trip}
-        workEntries={workEntries}
-        expenses={expenses}
-        payouts={payouts}
-      />
-    </AppShell>
+    <TripDetailScreen
+      trip={trip}
+      workEntries={workEntries}
+      expenses={expenses}
+      payouts={payouts}
+    />
   );
 }

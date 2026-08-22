@@ -2,10 +2,14 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "sonner";
 
+import { LocaleProvider } from "@/components/locale-provider";
+import { getLocale } from "@/lib/i18n/locale.server";
+
 import "./globals.css";
 
 const inter = Inter({
-  subsets: ["latin", "latin-ext"],
+  // Cyrylica dochodzi dla ukraińskiej wersji interfejsu.
+  subsets: ["latin", "latin-ext", "cyrillic", "cyrillic-ext"],
   variable: "--font-inter",
   display: "swap",
 });
@@ -34,11 +38,13 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale();
+
   return (
-    <html lang="pl" className={inter.variable}>
+    <html lang={locale} className={inter.variable}>
       <body>
-        {children}
+        <LocaleProvider initialLocale={locale}>{children}</LocaleProvider>
         <Toaster position="top-center" richColors />
       </body>
     </html>

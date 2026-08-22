@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { AppShell } from "@/components/app-shell";
 import { getTrips, getWorkEntries } from "@/lib/queries";
 import { findMyEmployee, requireOwner } from "@/lib/session";
 
@@ -18,7 +17,7 @@ export default async function EmployeeDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { user } = await requireOwner();
+  await requireOwner();
 
   const employee = await findMyEmployee(id);
   if (!employee) notFound();
@@ -26,9 +25,5 @@ export default async function EmployeeDetailPage({
   // Te same zapytania co dla własnych danych — różni się tylko user_id.
   const [entries, trips] = await Promise.all([getWorkEntries(employee.id), getTrips(employee.id)]);
 
-  return (
-    <AppShell title={employee.name} user={user}>
-      <EmployeeDetailScreen employee={employee} entries={entries} trips={trips} />
-    </AppShell>
-  );
+  return <EmployeeDetailScreen employee={employee} entries={entries} trips={trips} />;
 }

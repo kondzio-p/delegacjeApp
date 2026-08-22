@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { AppShell } from "@/components/app-shell";
 import { getTrips, getWorkEntries } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 
@@ -16,8 +15,6 @@ export default async function WorkPage() {
   const [trips, entries] = await Promise.all([getTrips(user.id), getWorkEntries(user.id)]);
 
   return (
-    <AppShell title="Godziny Pracy" user={user}>
-      <WorkEntriesScreen trips={trips} entries={entries} />
-    </AppShell>
+    <WorkEntriesScreen trips={trips} entries={entries} />
   );
 }

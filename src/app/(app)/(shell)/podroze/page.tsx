@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { AppShell } from "@/components/app-shell";
 import { getTrips } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 
@@ -16,8 +15,6 @@ export default async function TripsPage() {
   const trips = await getTrips(user.id);
 
   return (
-    <AppShell title="Podróże" user={user}>
-      <TripsScreen trips={trips} />
-    </AppShell>
+    <TripsScreen trips={trips} />
   );
 }

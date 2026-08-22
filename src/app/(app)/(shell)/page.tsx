@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { AppShell } from "@/components/app-shell";
 import { getExpenses, getPayouts, getTrips, getWorkEntries } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 
@@ -21,13 +20,11 @@ export default async function DashboardPage() {
   ]);
 
   return (
-    <AppShell title="Dashboard" user={user}>
-      <DashboardScreen
-        trips={trips}
-        workEntries={workEntries}
-        expenses={expenses}
-        payouts={payouts}
-      />
-    </AppShell>
+    <DashboardScreen
+      trips={trips}
+      workEntries={workEntries}
+      expenses={expenses}
+      payouts={payouts}
+    />
   );
 }

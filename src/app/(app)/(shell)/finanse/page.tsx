@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { AppShell } from "@/components/app-shell";
 import { getExpenses, getPayouts, getTrips } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 
@@ -20,8 +19,6 @@ export default async function FinancePage() {
   ]);
 
   return (
-    <AppShell title="Finanse" user={user}>
-      <FinanceScreen trips={trips} expenses={expenses} payouts={payouts} />
-    </AppShell>
+    <FinanceScreen trips={trips} expenses={expenses} payouts={payouts} />
   );
 }
