@@ -521,8 +521,8 @@ function ProfileSection({ user }: { user: SessionUser }) {
           />
         </Field>
         <p className="text-xs text-muted-foreground">
-          Imieniem podpisana jest Twoja karta u właściciela firmy. Adresu e-mail na razie nie
-          weryfikujemy i nic na niego nie wysyłamy — służy tylko do logowania.
+          Adresu e-mail na razie nie weryfikujemy i nic na niego nie wysyłamy — służy tylko
+          do logowania.
         </p>
         <FormMessage error={state.error} />
         <button
