@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/session";
 import { FinanceScreen } from "./finance-screen";
 
 export const metadata: Metadata = {
-  title: "Finanse — Delegacje",
+  title: "Finanse",
   description: "Dodawaj koszty i wypłaty oraz śledź historię transakcji.",
 };
 

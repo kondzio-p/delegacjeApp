@@ -6,8 +6,8 @@ import { requireUser } from "@/lib/session";
 import { WorkEntriesScreen } from "./work-entries-screen";
 
 export const metadata: Metadata = {
-  title: "Godziny Pracy — Delegacje",
-  description: "Zapisuj godziny pracy i stawki podczas delegacji.",
+  title: "Godziny pracy",
+  description: "Zapisuj przepracowane godziny — data, od której do której.",
 };
 
 export default async function WorkPage() {

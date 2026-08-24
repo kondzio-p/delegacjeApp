@@ -5,8 +5,8 @@ import { AuthForm } from "./auth-form";
 import { getSessionUser } from "@/lib/auth";
 
 export const metadata: Metadata = {
-  title: "Logowanie — Delegacje",
-  description: "Zaloguj się, aby rozliczać czas pracy, koszty i zyski z delegacji zagranicznych.",
+  title: "Logowanie",
+  description: "Zaloguj się, aby zapisywać godziny pracy i wypłaty.",
 };
 
 export default async function LoginPage() {

@@ -14,6 +14,8 @@ export type Settings = { display: Currency };
 
 export const DEFAULT_SETTINGS: Settings = { display: "PLN" };
 
+// Nazwa została z czasów, gdy aplikacja nazywała się Delegacje. Zmiana
+// tego klucza skasowałaby zapisane ustawienia, więc zostaje jak jest.
 const STORAGE_KEY = "delegacje.settings";
 
 let snapshot: Settings = DEFAULT_SETTINGS;

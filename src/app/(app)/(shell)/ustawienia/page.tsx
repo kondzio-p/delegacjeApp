@@ -6,8 +6,8 @@ import { requireUser } from "@/lib/session";
 import { SettingsScreen } from "./settings-screen";
 
 export const metadata: Metadata = {
-  title: "Ustawienia — Delegacje",
-  description: "Konto, hasło, firma oraz kurs waluty.",
+  title: "Ustawienia",
+  description: "Konto, hasło, firma, kategorie kosztów i prywatność.",
 };
 
 export default async function SettingsPage() {

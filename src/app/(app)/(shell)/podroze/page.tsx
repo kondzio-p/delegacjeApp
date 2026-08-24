@@ -6,8 +6,8 @@ import { requireUser } from "@/lib/session";
 import { TripsScreen } from "./trips-screen";
 
 export const metadata: Metadata = {
-  title: "Podróże — Delegacje",
-  description: "Rejestruj wyjazdy i powroty z delegacji zagranicznych.",
+  title: "Podróże",
+  description: "Rejestruj wyjazdy i powroty.",
 };
 
 export default async function TripsPage() {

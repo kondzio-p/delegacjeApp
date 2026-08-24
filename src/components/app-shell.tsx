@@ -115,7 +115,7 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
             <p className="truncate text-base font-semibold">
               {t("shell.greeting", { name: user.name })}
             </p>
-            <p className="truncate text-xs text-muted-foreground">Delegacje</p>
+            <p className="truncate text-xs text-muted-foreground">Godzio</p>
           </div>
           <button
             type="button"

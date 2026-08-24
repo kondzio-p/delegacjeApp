@@ -6,7 +6,7 @@ import { requireOwner } from "@/lib/session";
 import { EmployeesScreen } from "./employees-screen";
 
 export const metadata: Metadata = {
-  title: "Pracownicy — Delegacje",
+  title: "Pracownicy",
   description: "Godziny pracy zespołu i prośby o dołączenie do firmy.",
 };
 

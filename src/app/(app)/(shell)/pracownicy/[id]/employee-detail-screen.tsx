@@ -77,7 +77,7 @@ export function EmployeeDetailScreen({
     [visible],
   );
 
-  // Grupowanie po delegacjach; wpisy bez przypisania lądują na końcu.
+  // Grupowanie po wyjazdach; wpisy bez przypisania lądują na końcu.
   const groups = useMemo(() => {
     const byTrip = new Map<string, WorkEntry[]>();
     const unassigned: WorkEntry[] = [];
@@ -192,7 +192,7 @@ export function EmployeeDetailScreen({
             <EntryGroup
               key={trip.id}
               title={tripLabel(trip)}
-              subtitle="delegacja"
+              subtitle="wyjazd"
               entries={tripEntries}
               employeeId={employee.id}
               onEdit={setEditing}
@@ -201,7 +201,7 @@ export function EmployeeDetailScreen({
 
           {groups.unassigned.length > 0 && (
             <EntryGroup
-              title="Bez przypisania do delegacji"
+              title="Bez przypisania do wyjazdu"
               entries={groups.unassigned}
               employeeId={employee.id}
               onEdit={setEditing}
@@ -401,7 +401,7 @@ function EntryFormModal({
         <input type="hidden" name="employee_id" value={employeeId} />
         {entry && <input type="hidden" name="id" value={entry.id} />}
 
-        <Field label="Delegacja">
+        <Field label="Wyjazd">
           <select
             name="trip_id"
             defaultValue={entry?.trip_id ?? ""}

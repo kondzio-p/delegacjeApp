@@ -8,7 +8,7 @@ import { requireOwner } from "@/lib/session";
 import { CompanyScreen } from "./company-screen";
 
 export const metadata: Metadata = {
-  title: "Moja firma — Delegacje",
+  title: "Moja firma",
   description: "Wypłaty i godziny zespołu w wybranym okresie oraz raport dla księgowej.",
 };
 

@@ -1,7 +1,8 @@
-# Delegacje
+# Godzio
 
-Rozliczanie delegacji zagranicznych: godziny pracy, koszty, wypłaty i realny zysk.
-Dodatkowo tryb właściciela firmy z podglądem godzin pracowników.
+Godziny pracy i wypłaty dla pracujących za granicą: ile przepracowane, ile wypłacone,
+ile poszło na koszty i co z tego realnie zostaje. Dodatkowo tryb właściciela firmy
+z podglądem godzin i wypłat pracowników.
 
 Next.js 16 (App Router) + Prisma 7 + Prisma Postgres. Bez Supabase, bez Lovable,
 bez żadnej zewnętrznej usługi poza bazą danych.
@@ -74,8 +75,8 @@ npm run dev        # http://localhost:3000
 
 **Właściciel** widzi prośbę na górze zakładki Pracownicy i klika **Akceptuj**.
 Od tej chwili widzi kartę pracownika (imię, e-mail, godziny w tym miesiącu,
-status delegacji, ostatni wpis), a po wejściu w kartę — pełne zestawienie godzin z filtrem miesiąca,
-podziałem na delegacje, edycją wpisów, eksportem PDF i resetem hasła.
+status wyjazdu, ostatni wpis), a po wejściu w kartę — pełne zestawienie godzin z filtrem miesiąca,
+podziałem na wyjazdy, edycją wpisów, eksportem PDF i resetem hasła.
 
 Właściciel widzi godziny pracy i **wypłaty** pracownika — te ostatnie sam wypłacił.
 **Nie widzi** kosztów, które pracownik ponosi z własnej kieszeni.
@@ -85,9 +86,9 @@ Właściciel widzi godziny pracy i **wypłaty** pracownika — te ostatnie sam w
 ```bash
 git init
 git add .
-git commit -m "Delegacje - pierwsza wersja"
+git commit -m "Godzio - pierwsza wersja"
 git branch -M main
-git remote add origin https://github.com/TWOJ_LOGIN/delegacje.git
+git remote add origin https://github.com/TWOJ_LOGIN/godzio.git
 git push -u origin main
 ```
 
@@ -97,6 +98,8 @@ Następnie na [vercel.com](https://vercel.com):
 2. Framework zostanie wykryty jako **Next.js** — nic nie zmieniaj w ustawieniach builda.
 3. W **Environment Variables** dodaj `DATABASE_URL` z tą samą wartością co w `.env`
    (zaznacz Production, Preview i Development).
+   Po podpięciu własnej domeny dodaj jeszcze `NEXT_PUBLIC_SITE_URL` z jej adresem —
+   bez tego podgląd linku w Messengerze wskaże domenę `*.vercel.app`.
 4. **Deploy**.
 
 Migracje odpalasz z własnego komputera — łączą się z tą samą bazą, więc wystarczy
@@ -131,6 +134,7 @@ spójna. Jest idempotentny — zastosowane migracje pomija.
 | `npm run db:deploy` | zastosowanie migracji — patrz uwaga niżej |
 | `node --env-file=.env ./apply-migration-pg.mjs` | zastosowanie migracji, gdy `db:deploy` nie daje rady |
 | `npm run db:studio` | podgląd danych w przeglądarce |
+| `node scripts/make-images.mjs` | przegenerowanie ikon i obrazka Open Graph z `assets/logo-source.png` |
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
 
 ---
@@ -147,8 +151,14 @@ src/lib/queries.ts         odczyty dla server components
 src/lib/actions/           zapisy: auth.ts, company.ts, data.ts
 src/lib/trip-summary.ts    liczenie podsumowań i realnych stawek godzinowych
 src/app/(app)/             ekrany po zalogowaniu
-src/app/udostepnione/      publiczny podgląd delegacji spod linku
+src/app/udostepnione/      publiczny podgląd wyjazdu spod linku
 ```
+
+**Logo i ikony.** Jedynym źródłem jest `assets/logo-source.png` (poza `public/`, więc
+nie trafia na serwer). `node scripts/make-images.mjs` robi z niego favicon, ikonę Apple,
+ikony do manifestu, znak na ekran logowania oraz kartę Open Graph 1200×630. Skrypt sam
+znajduje treść logo i przycina tło, a na ikony bierze wyłącznie znak bez napisu —
+w tej skali napis i tak byłby nieczytelny. Po podmianie logo uruchom go ponownie.
 
 **Bezpieczeństwo danych.** Każde zapytanie jest zawężone do `user_id` z sesji,
 a zapisy idą przez `updateMany` / `deleteMany` z warunkiem właściciela — cudzego

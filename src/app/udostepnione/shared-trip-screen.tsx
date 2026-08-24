@@ -67,7 +67,7 @@ export function SharedTripScreen({
       </section>
 
       <div className="print-only mb-4">
-        <h1 className="text-xl font-bold">Podsumowanie delegacji</h1>
+        <h1 className="text-xl font-bold">Podsumowanie wyjazdu</h1>
         <p className="text-sm">
           {formatDateTime(payload.trip.departure_at)} —{" "}
           {payload.trip.return_at ? formatDateTime(payload.trip.return_at) : "podróż w toku"}
@@ -116,7 +116,7 @@ export function SharedTripScreen({
 
       <button
         type="button"
-        onClick={() => printDocument(`Delegacja_${isoDay(payload.trip.departure_at, "podroz")}`)}
+        onClick={() => printDocument(`Wyjazd_${isoDay(payload.trip.departure_at, "podroz")}`)}
         className="no-print mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-card text-base font-semibold active:bg-secondary"
       >
         <FileDown className="h-5 w-5 shrink-0" /> Zapisz jako PDF
@@ -147,7 +147,7 @@ function Layout({ children }: { children: React.ReactNode }) {
             <Plane className="h-5 w-5 text-primary-foreground" />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-base font-semibold">Podsumowanie delegacji</p>
+            <p className="truncate text-base font-semibold">Podsumowanie wyjazdu</p>
             <p className="truncate text-xs text-muted-foreground">Widok tylko do odczytu</p>
           </div>
         </div>

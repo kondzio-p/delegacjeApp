@@ -7,8 +7,8 @@ import { findMyEmployee, requireOwner } from "@/lib/session";
 import { EmployeeDetailScreen } from "./employee-detail-screen";
 
 export const metadata: Metadata = {
-  title: "Pracownik — Delegacje",
-  description: "Godziny pracy pracownika w podziale na miesiące i delegacje.",
+  title: "Pracownik",
+  description: "Godziny pracy i wypłaty pracownika w podziale na miesiące i wyjazdy.",
 };
 
 export default async function EmployeeDetailPage({

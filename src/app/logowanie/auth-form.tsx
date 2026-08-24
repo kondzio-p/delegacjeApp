@@ -1,6 +1,7 @@
 "use client";
 
-import { Loader2, Plane } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
@@ -26,10 +27,15 @@ export function AuthForm() {
 
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary">
-            <Plane className="h-7 w-7 text-primary-foreground" />
-          </div>
-          <h1 className="text-2xl font-bold text-foreground">Delegacje</h1>
+          <Image
+            src="/logo-mark.png"
+            alt=""
+            width={56}
+            height={56}
+            priority
+            className="h-14 w-14"
+          />
+          <h1 className="text-2xl font-bold text-foreground">Godzio</h1>
           <p className="text-sm text-muted-foreground">{t("auth.tagline")}</p>
         </div>
 

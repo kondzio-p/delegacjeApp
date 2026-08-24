@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/session";
 import { RatesScreen } from "./rates-screen";
 
 export const metadata: Metadata = {
-  title: "Kursy i przeliczarka — Delegacje",
+  title: "Kursy i przeliczarka",
   description: "Aktualne kursy NBP dla euro i dolara oraz przeliczarka walut.",
 };
 

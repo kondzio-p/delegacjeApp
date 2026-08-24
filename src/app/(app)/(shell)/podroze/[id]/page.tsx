@@ -7,8 +7,8 @@ import { requireUser } from "@/lib/session";
 import { TripDetailScreen } from "./trip-detail-screen";
 
 export const metadata: Metadata = {
-  title: "Podsumowanie podróży — Delegacje",
-  description: "Godziny, koszty, wypłaty i realny zysk z jednej delegacji.",
+  title: "Podsumowanie podróży",
+  description: "Godziny, koszty, wypłaty i realny zarobek z jednego wyjazdu.",
 };
 
 export default async function TripDetailPage({ params }: { params: Promise<{ id: string }> }) {

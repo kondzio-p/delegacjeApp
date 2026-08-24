@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { RecoverForm } from "./recover-form";
 
 export const metadata: Metadata = {
-  title: "Odzyskiwanie hasła — Delegacje",
+  title: "Odzyskiwanie hasła",
   description: "Ustaw nowe hasło przy pomocy kodu odzyskiwania.",
 };
 

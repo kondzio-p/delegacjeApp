@@ -164,7 +164,7 @@ export function EmployeesScreen({
                 <p className="min-w-0 truncate text-sm font-semibold">{employee.name}</p>
                 {employee.onTrip ? (
                   <span className="flex shrink-0 items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
-                    <Plane className="h-3 w-3" /> w delegacji
+                    <Plane className="h-3 w-3" /> na wyjeździe
                   </span>
                 ) : (
                   <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">

@@ -6,8 +6,8 @@ import { requireUser } from "@/lib/session";
 import { DashboardScreen } from "./dashboard-screen";
 
 export const metadata: Metadata = {
-  title: "Dashboard — Delegacje",
-  description: "Przewidywany zarobek, faktyczne wypłaty i porównanie jednego z drugim.",
+  title: "Dashboard",
+  description: "Przepracowane godziny, wypłaty, koszty i realny zarobek w jednym miejscu.",
 };
 
 export default async function DashboardPage() {

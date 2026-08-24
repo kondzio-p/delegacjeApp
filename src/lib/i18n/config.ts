@@ -8,6 +8,8 @@ export type Locale = (typeof LOCALES)[number];
 
 export const DEFAULT_LOCALE: Locale = "pl";
 
+// Nazwa została z czasów, gdy aplikacja nazywała się Delegacje. Zmiana
+// tego klucza cofnęłaby wszystkim wybrany język, więc zostaje jak jest.
 export const LOCALE_COOKIE = "delegacje_locale";
 
 /** Rok — język wybiera się raz i ma zostać. */

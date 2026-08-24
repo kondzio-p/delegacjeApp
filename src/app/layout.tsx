@@ -14,20 +14,48 @@ const inter = Inter({
   display: "swap",
 });
 
+/**
+ * Adres, względem którego rozwijane są odnośniki w metadanych.
+ *
+ * Bez tego `og:image` zostaje adresem względnym, którego roboty Facebooka
+ * i Messengera nie potrafią pobrać — i podstawiają cokolwiek znajdą same.
+ * Na Vercelu `VERCEL_PROJECT_PRODUCTION_URL` wskazuje stałą domenę produkcyjną
+ * (nie adres pojedynczego wdrożenia), więc podgląd nie psuje się po każdym
+ * deployu. Własną domenę wpisuje się w NEXT_PUBLIC_SITE_URL.
+ */
+function siteUrl(): URL {
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL;
+  if (explicit) return new URL(explicit);
+
+  const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  if (vercel) return new URL(`https://${vercel}`);
+
+  return new URL("http://localhost:3000");
+}
+
+const TITLE = "Godzio — godziny pracy i wypłaty";
+const DESCRIPTION =
+  "Zapisuj godziny pracy i wypłaty, śledź koszty i realny zarobek. Prosta aplikacja dla pracujących za granicą.";
+
 export const metadata: Metadata = {
-  title: "Delegacje — rozliczenie czasu pracy i zysków",
-  description:
-    "Licz godziny pracy, koszty i realny zysk z delegacji zagranicznych na telefonie.",
+  metadataBase: siteUrl(),
+  // Podstrony podają samą nazwę ekranu — resztę dokleja szablon.
+  title: { default: TITLE, template: "%s — Godzio" },
+  description: DESCRIPTION,
+  applicationName: "Godzio",
   manifest: "/manifest.webmanifest",
-  icons: {
-    icon: "/favicon.png",
-    apple: "/app-icon-512.png",
-  },
   openGraph: {
-    title: "Delegacje — rozliczenie czasu pracy i zysków",
-    description:
-      "Licz godziny pracy, koszty i realny zysk z delegacji zagranicznych na telefonie.",
     type: "website",
+    siteName: "Godzio",
+    locale: "pl_PL",
+    title: TITLE,
+    description: DESCRIPTION,
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
   },
 };
 

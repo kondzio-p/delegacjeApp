@@ -73,7 +73,7 @@ export function DashboardScreen({
     [scoped, display, nbpRates],
   );
 
-  /** Czas w delegacji: jedna podróż albo suma wszystkich. */
+  /** Czas na wyjeździe: jedna podróż albo suma wszystkich. */
   const tripHours = useMemo(() => {
     const list = selectedTrip ? [selectedTrip] : trips;
     return list.reduce((sum, trip) => {

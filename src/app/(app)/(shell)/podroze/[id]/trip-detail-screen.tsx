@@ -158,7 +158,7 @@ function ShareDialog({ trip, onClose }: { trip: Trip; onClose: () => void }) {
     if (!url) return;
     try {
       if (typeof navigator !== "undefined" && navigator.share) {
-        await navigator.share({ title: `Delegacja ${formatDate(trip.departure_at)}`, url });
+        await navigator.share({ title: `Wyjazd ${formatDate(trip.departure_at)}`, url });
         return;
       }
       await copyLink();
@@ -249,7 +249,7 @@ function ShareDialog({ trip, onClose }: { trip: Trip; onClose: () => void }) {
         type="button"
         onClick={() => {
           onClose();
-          printDocument(`Delegacja_${isoDay(trip.departure_at, "podroz")}`);
+          printDocument(`Wyjazd_${isoDay(trip.departure_at, "podroz")}`);
         }}
         className="flex w-full items-center gap-3 rounded-xl bg-secondary p-4 text-left active:opacity-80"
       >

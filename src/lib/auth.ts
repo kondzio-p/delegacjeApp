@@ -23,6 +23,8 @@ const scryptAsync = promisify(scrypt) as (
 ) => Promise<Buffer>;
 
 const KEY_LENGTH = 64;
+// Nazwa została z czasów, gdy aplikacja nazywała się Delegacje. Zmiana
+// tego klucza wylogowałaby wszystkich, więc zostaje jak jest.
 const SESSION_COOKIE = "delegacje_session";
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 
