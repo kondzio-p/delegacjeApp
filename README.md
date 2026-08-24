@@ -154,11 +154,19 @@ src/app/(app)/             ekrany po zalogowaniu
 src/app/udostepnione/      publiczny podgląd wyjazdu spod linku
 ```
 
-**Logo i ikony.** Jedynym źródłem jest `assets/logo-source.png` (poza `public/`, więc
-nie trafia na serwer). `node scripts/make-images.mjs` robi z niego favicon, ikonę Apple,
-ikony do manifestu, znak na ekran logowania oraz kartę Open Graph 1200×630. Skrypt sam
-znajduje treść logo i przycina tło, a na ikony bierze wyłącznie znak bez napisu —
-w tej skali napis i tak byłby nieczytelny. Po podmianie logo uruchom go ponownie.
+**Logo i ikony.** Źródłem jest `assets/logo.svg` (a gdy go nie ma —
+`assets/logo-source.png`). Oba leżą poza `public/`, więc nie trafiają na serwer.
+`node scripts/make-images.mjs` robi z nich favicon, ikonę Apple, ikony do manifestu,
+znak na ekran logowania oraz kartę Open Graph 1200×630. Skrypt sam znajduje treść
+logo i przycina tło, a na ikony bierze wyłącznie znak bez napisu — w tej skali napis
+i tak byłby nieczytelny. Po podmianie logo uruchom go ponownie.
+
+Obecny SVG nie jest wektorem, tylko PNG-iem opakowanym w maskę przezroczystości,
+i ta maska usuwa każdą biel — razem z tłem znika białe wypełnienie tarczy zegara.
+Odzyskać go nie sposób: tarcza łączy się z tłem przez otwarcie w literze G. Dlatego
+przezroczysty zostaje wyłącznie znak w interfejsie, a ikony i karta OG dostają białe
+tło. Jeśli logo ma kiedyś działać na ciemnym tle, tarcza musi być w źródle osobnym
+białym kształtem, a nie efektem ubocznym białego tła.
 
 **Bezpieczeństwo danych.** Każde zapytanie jest zawężone do `user_id` z sesji,
 a zapisy idą przez `updateMany` / `deleteMany` z warunkiem właściciela — cudzego

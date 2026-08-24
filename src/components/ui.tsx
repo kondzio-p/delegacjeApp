@@ -3,7 +3,7 @@
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
 
-import type { Currency } from "@/lib/money";
+import { CURRENCIES, type Currency } from "@/lib/money";
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -26,8 +26,8 @@ export function CurrencyToggle({
   return (
     <>
       {name && <input type="hidden" name={name} value={value} />}
-      <div className="grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1">
-        {(["EUR", "PLN"] as const).map((c) => (
+      <div className="grid grid-cols-3 gap-2 rounded-xl bg-secondary p-1">
+        {CURRENCIES.map((c) => (
           <button
             key={c}
             type="button"

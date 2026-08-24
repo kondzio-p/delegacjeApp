@@ -46,6 +46,7 @@ import {
   setOwnerModeAction,
 } from "@/lib/actions/company";
 import { deleteMyAccountAction, exportMyDataAction } from "@/lib/actions/privacy";
+import { CURRENCIES } from "@/lib/money";
 import { DELETE_CONFIRMATION } from "@/lib/privacy";
 import type { ActionState, SessionUser } from "@/lib/types";
 
@@ -89,8 +90,8 @@ export function SettingsScreen({
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Waluta wyświetlania
         </h2>
-        <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1">
-          {(["EUR", "PLN"] as const).map((c) => (
+        <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl bg-secondary p-1">
+          {CURRENCIES.map((c) => (
             <button
               key={c}
               type="button"
@@ -104,8 +105,9 @@ export function SettingsScreen({
           ))}
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          Waluta jest zapisana na tym urządzeniu — nie trafia do bazy. Kursy pobieramy z NBP,
-          a przy każdym wpisie zapamiętujemy kurs z jego dnia, żeby historia się nie zmieniała.
+          Waluta jest zapisana na Twoim koncie, więc obowiązuje na każdym urządzeniu. Kursy
+          pobieramy z NBP, a przy każdym wpisie zapamiętujemy kurs z jego dnia, żeby historia
+          się nie zmieniała.
         </p>
       </section>
 
@@ -636,6 +638,11 @@ function CompanySection({ user, status }: { user: SessionUser; status: CompanySt
   const [joinState, joinAction, joinPending] = useAction(requestJoinAction);
   const [wantsOwner, setWantsOwner] = useState(user.is_owner);
 
+  // Współwłaściciel niczego nie kasuje — może tylko odejść, i komunikat musi
+  // to mówić wprost, bo akcja zachowuje się inaczej niż u założyciela.
+  const isCoOwner = status.coOwnedCompanyName !== null;
+  const hasCompany = status.ownCompanyName !== null;
+
   return (
     <section className="mt-4 rounded-2xl bg-card p-4">
       <div className="flex items-center gap-2">
@@ -693,21 +700,32 @@ function CompanySection({ user, status }: { user: SessionUser; status: CompanySt
           ) : (
             user.is_owner && (
               <p className="text-xs text-destructive">
-                Wyłączenie trybu właściciela kasuje firmę i odłącza od niej wszystkich pracowników.
-                Ich konta i wpisy zostają nietknięte.
+                {isCoOwner
+                  ? "Zrezygnujesz ze współwłasności. Firma i jej pracownicy zostają — odchodzisz tylko Ty."
+                  : hasCompany
+                    ? "Wyłączenie trybu właściciela kasuje firmę i odłącza od niej wszystkich pracowników. Ich konta i wpisy zostają nietknięte."
+                    : "Wyłączysz tryb właściciela. Nie masz zapisanej firmy, więc nic nie przepadnie."}
               </p>
             )
           )}
 
           <FormMessage error={ownerState.error} />
 
-          <button
-            type="submit"
-            disabled={ownerPending}
-            className="flex h-12 w-full items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-60"
-          >
-            {wantsOwner ? "Zapisz firmę" : "Wyłącz tryb właściciela"}
-          </button>
+          {/* Przy wyłączonym przełączniku i koncie bez trybu właściciela nie ma
+              czego wyłączać — przycisk tylko wprowadzałby w błąd. */}
+          {(wantsOwner || user.is_owner) && (
+            <button
+              type="submit"
+              disabled={ownerPending}
+              className="flex h-12 w-full items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            >
+              {wantsOwner
+                ? "Zapisz firmę"
+                : isCoOwner
+                  ? "Zrezygnuj ze współwłasności"
+                  : "Wyłącz tryb właściciela"}
+            </button>
+          )}
         </form>
       </div>
 

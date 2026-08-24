@@ -6,7 +6,14 @@ import { useEffect, useRef, useState } from "react";
 import { useLocale } from "@/components/locale-provider";
 import { LOCALES, LOCALE_META, type Locale } from "@/lib/i18n/config";
 
-/** Wybór języka interfejsu — przycisk z aktualnym językiem i lista do rozwinięcia. */
+/**
+ * Wybór języka interfejsu — przycisk z aktualnym językiem i lista do rozwinięcia.
+ *
+ * `className` służy do marginesów i wyrównania, nie do pozycjonowania: korzeń ma
+ * `relative` (potrzebne dla rozwijanej listy), a w CSS Tailwinda `.relative` jest
+ * później niż `.absolute`, więc przekazanie `absolute` zostanie zignorowane.
+ * Jeśli komponent ma gdzieś wisieć — opakuj go w pozycjonowany element.
+ */
 export function LanguagePicker({ className = "" }: { className?: string }) {
   const { locale, setLocale, t } = useLocale();
   const [open, setOpen] = useState(false);

@@ -1,15 +1,16 @@
 // Generator ikon i obrazka Open Graph z jednego pliku źródłowego.
 //
-// Po co własny kod zamiast biblioteki: `next/og` ma limit 500 KB na pakiet,
+// Po co własny kodek zamiast biblioteki: `next/og` ma limit 500 KB na pakiet,
 // a źródłowe logo waży więcej, więc nie da się go wstrzyknąć do ImageResponse.
 // Zamiast dokładać zależność do obróbki obrazów, dekodujemy PNG samym zlib-em —
-// plik jest 8-bitowym RGB bez przeplotu, czyli najprostszym wariantem formatu.
+// pliki są 8-bitowe i bez przeplotu, czyli w najprostszym wariancie formatu.
 //
 // Uruchamianie: node scripts/make-images.mjs
 import { deflateSync, inflateSync } from "node:zlib";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
-const SOURCE = "assets/logo-source.png";
+const SVG_SOURCE = "assets/logo.svg";
+const PNG_SOURCE = "assets/logo-source.png";
 const SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 /* ------------------------------------------------------------- dekodowanie */
@@ -19,7 +20,9 @@ function decodePng(buffer) {
 
   const width = buffer.readUInt32BE(16);
   const height = buffer.readUInt32BE(20);
-  const [depth, colorType, , , interlace] = [buffer[24], buffer[25], buffer[26], buffer[27], buffer[28]];
+  const depth = buffer[24];
+  const colorType = buffer[25];
+  const interlace = buffer[28];
   if (depth !== 8) throw new Error(`obsługujemy tylko 8 bitów na kanał, jest ${depth}`);
   if (interlace !== 0) throw new Error("przeplot (Adam7) nieobsługiwany");
   const channels = { 0: 1, 2: 3, 4: 2, 6: 4 }[colorType];
@@ -76,6 +79,57 @@ function decodePng(buffer) {
   return { width, height, data: rgba };
 }
 
+/**
+ * SVG, w którym siedzi raster.
+ *
+ * Eksporty z narzędzi graficznych bywają nie wektorem, tylko PNG-iem opakowanym
+ * w SVG: jeden obrazek niesie kolory, drugi — w skali szarości — służy za maskę
+ * przezroczystości (`feColorMatrix` liczy z niego luminancję). Składamy oba
+ * z powrotem w jeden obrazek z kanałem alfa.
+ *
+ * Prawdziwego wektora tu nie narysujemy — brak rasteryzatora. Dlatego przy
+ * SVG bez osadzonych rastrów mówimy wprost, co zrobić.
+ */
+function decodeSvgWrapper(text) {
+  const embedded = [...text.matchAll(/<image[^>]*?xlink:href="data:image\/png;base64,([A-Za-z0-9+/=]+)"/g)]
+    .map((match) => decodePng(Buffer.from(match[1], "base64")));
+
+  if (embedded.length === 0) {
+    throw new Error(
+      `${SVG_SOURCE} to prawdziwy wektor, którego nie potrafimy zrasteryzować. ` +
+      `Wyeksportuj logo do PNG z przezroczystością i zapisz jako ${PNG_SOURCE}.`,
+    );
+  }
+  if (embedded.length === 1) return embedded[0];
+
+  // Kolejność w pliku: najpierw maska (wewnątrz <mask>), potem warstwa kolorów.
+  const [mask, color] = embedded;
+  if (mask.width !== color.width || mask.height !== color.height) {
+    throw new Error("maska i warstwa kolorów mają różne wymiary");
+  }
+
+  const data = Buffer.alloc(color.data.length);
+  color.data.copy(data);
+  for (let i = 0; i < color.width * color.height; i++) {
+    const m = i * 4;
+    // Luminancja maski. Dla obrazka w skali szarości to po prostu jego jasność,
+    // ale liczymy pełnym wzorem, żeby zadziałało też dla maski kolorowej.
+    const luma = 0.2126 * mask.data[m] + 0.7152 * mask.data[m + 1] + 0.0722 * mask.data[m + 2];
+    data[m + 3] = Math.round((luma * mask.data[m + 3]) / 255);
+  }
+
+  return { width: color.width, height: color.height, data };
+}
+
+function loadSource() {
+  if (existsSync(SVG_SOURCE)) {
+    console.log(`źródło: ${SVG_SOURCE}`);
+    return decodeSvgWrapper(readFileSync(SVG_SOURCE, "utf8"));
+  }
+  console.log(`źródło: ${PNG_SOURCE}`);
+  return decodePng(readFileSync(PNG_SOURCE));
+}
+
 /* --------------------------------------------------------------- kodowanie */
 
 function crc32(buf) {
@@ -96,15 +150,23 @@ function chunk(type, body) {
   return Buffer.concat([head, body, crc]);
 }
 
+/** Czy obrazek w ogóle korzysta z przezroczystości. */
+function hasAlpha({ width, height, data }) {
+  for (let i = 0; i < width * height; i++) if (data[i * 4 + 3] !== 255) return true;
+  return false;
+}
+
 /**
- * Zapis PNG-a. Domyślnie 8-bitowe RGB — tło jest zawsze wypełnione, więc kanał
- * alfa byłby czystym marnotrawstwem. `withAlpha` włącza RGBA, bo tego formatu
- * wymaga dekoder ikon w Next przy PNG-u osadzonym w kontenerze ICO.
+ * Zapis PNG-a. RGBA tylko wtedy, gdy obrazek naprawdę ma przezroczystość —
+ * na nieprzezroczystym czwarty kanał byłby czystym marnotrawstwem miejsca.
  */
-function encodePng({ width, height, data }, withAlpha = false) {
+function encodePng(image, forceAlpha = false) {
+  const { width, height, data } = image;
+  const withAlpha = forceAlpha || hasAlpha(image);
   const channels = withAlpha ? 4 : 3;
   const stride = width * channels;
   const raw = Buffer.alloc(height * (stride + 1));
+
   for (let y = 0; y < height; y++) {
     raw[y * (stride + 1)] = 0; // filtr „none": obrazek jest gładki, kompresuje się dobrze
     for (let x = 0; x < width; x++) {
@@ -113,10 +175,12 @@ function encodePng({ width, height, data }, withAlpha = false) {
       if (withAlpha) raw[d + 3] = data[s + 3];
     }
   }
+
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8; ihdr[9] = withAlpha ? 6 : 2;
+  ihdr[8] = 8;
+  ihdr[9] = withAlpha ? 6 : 2;
   return Buffer.concat([
     SIG,
     chunk("IHDR", ihdr),
@@ -129,9 +193,12 @@ function encodePng({ width, height, data }, withAlpha = false) {
  * Kontener ICO z osadzonym PNG-iem.
  *
  * Format dopuszcza PNG w środku od czasów Visty i tak robi dziś każda
- * przeglądarka — dzięki temu nie trzeba kodować mapy bitowej DIB.
+ * przeglądarka — dzięki temu nie trzeba kodować mapy bitowej DIB. Next wymaga
+ * przy tym, żeby osadzony PNG był RGBA, stąd wymuszony kanał alfa.
  */
-function encodeIco(png, size) {
+function encodeIco(image, size) {
+  const png = encodePng(image, true);
+
   const header = Buffer.alloc(6);
   header.writeUInt16LE(0, 0);   // zarezerwowane
   header.writeUInt16LE(1, 2);   // typ: ikona
@@ -152,14 +219,24 @@ function encodeIco(png, size) {
 
 /* ------------------------------------------------ przycinanie i skalowanie */
 
-const WHITE = 246; // logo ma tło lekko odbiegające od czystej bieli
+const WHITE = 246;      // dawne logo miało tło lekko odbiegające od czystej bieli
+const VISIBLE = 8;      // niżej piksel jest praktycznie niewidoczny
 
-function isInk(data, i) {
-  return data[i] < WHITE || data[i + 1] < WHITE || data[i + 2] < WHITE;
+/**
+ * Czy piksel należy do treści.
+ *
+ * Przy źródle z przezroczystością decyduje kanał alfa; przy nieprzezroczystym
+ * (starszy plik PNG) — odróżnienie od białego tła.
+ */
+function inkTest(image) {
+  const przezroczyste = hasAlpha(image);
+  return przezroczyste
+    ? (data, i) => data[i + 3] > VISIBLE
+    : (data, i) => data[i] < WHITE || data[i + 1] < WHITE || data[i + 2] < WHITE;
 }
 
 /** Prostokąt zajęty przez treść, z pominięciem tła. */
-function contentBox(img, top = 0, bottom = img.height) {
+function contentBox(img, isInk, top = 0, bottom = img.height) {
   let x0 = img.width, y0 = img.height, x1 = -1, y1 = -1;
   for (let y = top; y < bottom; y++) {
     for (let x = 0; x < img.width; x++) {
@@ -178,7 +255,7 @@ function contentBox(img, top = 0, bottom = img.height) {
  * Poziome pasy treści rozdzielone pustymi wierszami. Logo składa się ze znaku
  * i napisu pod nim, więc pierwszy pas to sam znak — a tego chcemy na ikonę.
  */
-function bands(img, minGap = 20) {
+function bands(img, isInk, minGap = 20) {
   const filled = [];
   for (let y = 0; y < img.height; y++) {
     let any = false;
@@ -200,83 +277,130 @@ function bands(img, minGap = 20) {
   return out;
 }
 
-/** Zmniejszanie uśrednianiem obszaru — bez tego drobne linie zegara znikają. */
+/**
+ * Zmniejszanie uśrednianiem obszaru — bez tego drobne linie zegara znikają.
+ *
+ * Kolor uśredniamy z wagą kanału alfa, inaczej piksele w pełni przezroczyste
+ * (często białe albo czarne) rozjaśniałyby lub brudziły krawędzie znaku.
+ */
 function resample(img, box, w, h) {
-  const out = Buffer.alloc(w * h * 4, 255);
+  const out = Buffer.alloc(w * h * 4);
   const sx = box.w / w, sy = box.h / h;
+
   for (let y = 0; y < h; y++) {
-    const fy0 = box.y + y * sy, fy1 = fy0 + sy;
-    const y0 = Math.floor(fy0), y1 = Math.min(img.height, Math.ceil(fy1));
+    const fy0 = box.y + y * sy;
+    const y0 = Math.floor(fy0), y1 = Math.min(img.height, Math.ceil(fy0 + sy));
     for (let x = 0; x < w; x++) {
-      const fx0 = box.x + x * sx, fx1 = fx0 + sx;
-      const x0 = Math.floor(fx0), x1 = Math.min(img.width, Math.ceil(fx1));
-      let r = 0, g = 0, b = 0, n = 0;
+      const fx0 = box.x + x * sx;
+      const x0 = Math.floor(fx0), x1 = Math.min(img.width, Math.ceil(fx0 + sx));
+
+      let r = 0, g = 0, b = 0, alpha = 0, waga = 0, n = 0;
       for (let yy = y0; yy < y1; yy++) {
         for (let xx = x0; xx < x1; xx++) {
           const i = (yy * img.width + xx) * 4;
-          const a = img.data[i + 3] / 255;
-          // Kanał alfa składamy na biel, bo taki jest docelowy podkład.
-          r += img.data[i] * a + 255 * (1 - a);
-          g += img.data[i + 1] * a + 255 * (1 - a);
-          b += img.data[i + 2] * a + 255 * (1 - a);
+          const a = img.data[i + 3];
+          r += img.data[i] * a;
+          g += img.data[i + 1] * a;
+          b += img.data[i + 2] * a;
+          waga += a;
+          alpha += a;
           n++;
         }
       }
+
       const d = (y * w + x) * 4;
-      out[d] = Math.round(r / n); out[d + 1] = Math.round(g / n); out[d + 2] = Math.round(b / n); out[d + 3] = 255;
+      if (waga === 0) {
+        out[d] = out[d + 1] = out[d + 2] = 255;
+        out[d + 3] = 0;
+      } else {
+        out[d] = Math.round(r / waga);
+        out[d + 1] = Math.round(g / waga);
+        out[d + 2] = Math.round(b / waga);
+        out[d + 3] = Math.round(alpha / n);
+      }
     }
   }
   return { width: w, height: h, data: out };
 }
 
-/** Wkleja obrazek na biały prostokąt o zadanych wymiarach, wyśrodkowany. */
-function onCanvas(src, width, height) {
-  const data = Buffer.alloc(width * height * 4, 255);
+/**
+ * Wkleja obrazek na płótno, wyśrodkowany.
+ *
+ * `background` null zostawia przezroczystość; kolor podkłada tło i spłaszcza
+ * do niego kanał alfa — tego wymagają miejsca, które przezroczystości nie
+ * obsługują sensownie (iOS podkłada czerń, karty w komunikatorach też).
+ */
+function onCanvas(src, width, height, background) {
+  const data = Buffer.alloc(width * height * 4);
+  if (background) {
+    for (let i = 0; i < width * height; i++) {
+      const d = i * 4;
+      data[d] = background[0]; data[d + 1] = background[1]; data[d + 2] = background[2];
+      data[d + 3] = 255;
+    }
+  }
+
   const ox = Math.round((width - src.width) / 2);
   const oy = Math.round((height - src.height) / 2);
   for (let y = 0; y < src.height; y++) {
     for (let x = 0; x < src.width; x++) {
       const s = (y * src.width + x) * 4;
       const d = ((y + oy) * width + (x + ox)) * 4;
-      src.data.copy(data, d, s, s + 4);
+      const a = src.data[s + 3] / 255;
+      if (!background) {
+        src.data.copy(data, d, s, s + 4);
+        continue;
+      }
+      for (let k = 0; k < 3; k++) {
+        data[d + k] = Math.round(src.data[s + k] * a + data[d + k] * (1 - a));
+      }
+      data[d + 3] = 255;
     }
   }
   return { width, height, data };
 }
 
 /** Dopasowuje treść do ramki, zostawiając margines w procentach krótszego boku. */
-function fit(img, box, width, height, marginPct) {
+function fit(img, box, width, height, marginPct, background = null) {
   const m = Math.round(Math.min(width, height) * marginPct);
-  const maxW = width - 2 * m, maxH = height - 2 * m;
-  const scale = Math.min(maxW / box.w, maxH / box.h);
+  const scale = Math.min((width - 2 * m) / box.w, (height - 2 * m) / box.h);
   const w = Math.max(1, Math.round(box.w * scale));
   const h = Math.max(1, Math.round(box.h * scale));
-  return onCanvas(resample(img, box, w, h), width, height);
+  return onCanvas(resample(img, box, w, h), width, height, background);
 }
 
 /* ------------------------------------------------------------------ wyjście */
 
-const logo = decodePng(readFileSync(SOURCE));
-const full = contentBox(logo);
-const [markBand] = bands(logo);
-const mark = contentBox(logo, markBand.top, markBand.bottom);
+const BIEL = [255, 255, 255];
 
-console.log(`źródło ${logo.width}x${logo.height}`);
+const logo = loadSource();
+const isInk = inkTest(logo);
+const full = contentBox(logo, isInk);
+const [markBand] = bands(logo, isInk);
+const mark = contentBox(logo, isInk, markBand.top, markBand.bottom);
+
+console.log(`  ${logo.width}x${logo.height}, przezroczystość: ${hasAlpha(logo) ? "tak" : "nie"}`);
 console.log(`  całe logo: ${full.w}x${full.h} @ ${full.x},${full.y}`);
 console.log(`  sam znak:  ${mark.w}x${mark.h} @ ${mark.x},${mark.y}`);
 
+// Gdzie tło białe, a gdzie przezroczyste.
+//
+// Uwaga o źródle: maska w SVG usuwa KAŻDĄ biel, więc razem z tłem znika też
+// białe wypełnienie tarczy zegara. Odzyskać go nie sposób — tarcza łączy się
+// z tłem przez otwarcie w literze G, więc ani kolor, ani spójność obszaru nie
+// odróżniają jednego od drugiego. Na jasnym tle nie widać różnicy, na ciemnym
+// tarcza byłaby dziurą. Dlatego przezroczystość zostaje tylko tam, gdzie znak
+// leży na jasnym tle aplikacji; wszędzie indziej podkładamy biel:
+//   - iOS kładzie ikonę na czerni, ciemny znak by zniknął,
+//   - karty w komunikatorach renderują się zależnie od motywu odbiorcy,
+//   - favicon w ciemnym pasku kart jest czytelniejszy na białym kwadracie.
 const targets = [
-  // Karta Open Graph: 1200x630 to proporcja, ktorej oczekuja Messenger i Facebook.
-  ["src/app/opengraph-image.png", () => fit(logo, full, 1200, 630, 0.1)],
-  ["src/app/twitter-image.png", () => fit(logo, full, 1200, 630, 0.1)],
-  // Favicon i ikona Apple ida przez konwencje katalogu app/ — Next sam wstawia znaczniki.
-  // Favicon celowo maly: laduje sie przy kazdym wejsciu na strone.
-  ["src/app/icon.png", () => fit(logo, mark, 96, 96, 0.04)],
-  ["src/app/apple-icon.png", () => fit(logo, mark, 180, 180, 0.08)],
-  // Ikony do manifestu potrzebuja stalych adresow, wiec zostaja w public/.
-  ["public/icon-512.png", () => fit(logo, mark, 512, 512, 0.08)],
-  ["public/icon-192.png", () => fit(logo, mark, 192, 192, 0.08)],
-  // Znak do interfejsu (ekran logowania).
+  ["src/app/opengraph-image.png", () => fit(logo, full, 1200, 630, 0.1, BIEL)],
+  ["src/app/twitter-image.png", () => fit(logo, full, 1200, 630, 0.1, BIEL)],
+  ["src/app/icon.png", () => fit(logo, mark, 96, 96, 0.06, BIEL)],
+  ["src/app/apple-icon.png", () => fit(logo, mark, 180, 180, 0.12, BIEL)],
+  ["public/icon-512.png", () => fit(logo, mark, 512, 512, 0.12, BIEL)],
+  ["public/icon-192.png", () => fit(logo, mark, 192, 192, 0.12, BIEL)],
   ["public/logo-mark.png", () => fit(logo, mark, 256, 256, 0.02)],
 ];
 
@@ -288,7 +412,6 @@ for (const [path, build] of targets) {
 
 // favicon.ico ma pierwszeństwo przed icon.png w karcie przeglądarki,
 // więc musi nieść ten sam znak — inaczej zostaje po starym logo.
-const icoPng = encodePng(fit(logo, mark, 64, 64, 0.04), true);
-const ico = encodeIco(icoPng, 64);
+const ico = encodeIco(fit(logo, mark, 64, 64, 0.06, BIEL), 64);
 writeFileSync("src/app/favicon.ico", ico);
 console.log(`  ${"src/app/favicon.ico".padEnd(32)} ${(ico.length / 1024).toFixed(1)} KB`);

@@ -17,7 +17,7 @@ import { useT } from "@/components/locale-provider";
 import { useRates } from "@/components/rates-provider";
 import { useSettings } from "@/components/use-settings";
 import { CategoryBreakdown, StatCard } from "@/components/trip-summary-view";
-import { formatDateTime, formatDuration, formatHours, formatMoney } from "@/lib/money";
+import { CURRENCIES, formatDateTime, formatDuration, formatHours, formatMoney } from "@/lib/money";
 import { hourlyRates, splitDaysHours, totalsOf, tripLabel } from "@/lib/trip-summary";
 import type { Expense, Payout, Trip, WorkEntry } from "@/lib/types";
 
@@ -119,8 +119,8 @@ export function DashboardScreen({
 
       <section className="mt-4 rounded-2xl bg-card p-4">
         <p className="mb-3 text-sm font-medium text-muted-foreground">{t("dash.displayIn")}</p>
-        <div className="grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1">
-          {(["EUR", "PLN"] as const).map((c) => (
+        <div className="grid grid-cols-3 gap-2 rounded-xl bg-secondary p-1">
+          {CURRENCIES.map((c) => (
             <button
               key={c}
               type="button"

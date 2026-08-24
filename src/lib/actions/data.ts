@@ -5,13 +5,16 @@ import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db";
+import { CURRENCIES, type Currency } from "@/lib/money";
 import { getRateForDate } from "@/lib/nbp";
 import { isoDate } from "@/lib/rates";
 import { requireOwner, requireUser } from "@/lib/session";
 import type { ActionState } from "@/lib/types";
 
 const uuid = z.uuid("Nieprawidłowy identyfikator");
-const currency = z.enum(["EUR", "PLN"]);
+// Zestaw walut trzyma `money.ts` — enum budowany z niego nie rozjedzie się
+// z interfejsem przy dokładaniu kolejnej waluty.
+const currency = z.enum(CURRENCIES);
 const localDateTime = z.string().min(1, "Podaj datę i godzinę");
 const dayString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Nieprawidłowa data");
 const timeString = z.string().regex(/^\d{2}:\d{2}$/, "Nieprawidłowa godzina");
@@ -88,7 +91,7 @@ function refreshAll() {
  * Brak odpowiedzi z NBP nie może wywalić zapisu: zwracamy null, a odczyt
  * sięgnie wtedy po kurs bieżący.
  */
-async function freezeRate(currency: "EUR" | "PLN") {
+async function freezeRate(currency: Currency) {
   const today = isoDate(new Date());
   if (currency === "PLN") return { nbp_rate: 1, nbp_rate_date: today };
 

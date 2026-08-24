@@ -9,7 +9,7 @@ import {
   TripStatsGrid,
   WorkEntriesList,
 } from "@/components/trip-summary-view";
-import { formatDateTime, type Currency } from "@/lib/money";
+import { CURRENCIES, formatDateTime, type Currency } from "@/lib/money";
 import { isoDay, printDocument } from "@/lib/print";
 import { summarizeTrip } from "@/lib/trip-summary";
 import type { SharedTripPayload } from "@/lib/queries";
@@ -45,8 +45,8 @@ export function SharedTripScreen({
     <Layout>
       <section className="no-print rounded-2xl bg-card p-4">
         <p className="mb-3 text-sm font-medium text-muted-foreground">Wyświetl w</p>
-        <div className="grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1">
-          {(["EUR", "PLN"] as const).map((c) => (
+        <div className="grid grid-cols-3 gap-2 rounded-xl bg-secondary p-1">
+          {CURRENCIES.map((c) => (
             <button
               key={c}
               type="button"

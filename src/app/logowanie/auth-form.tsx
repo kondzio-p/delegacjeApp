@@ -22,47 +22,55 @@ export function AuthForm() {
   const t = useT();
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-background px-4 py-10">
-      <LanguagePicker className="absolute right-3 top-3" />
+    // Wybór języka ma własny wiersz zamiast pozycji absolutnej: LanguagePicker
+    // ustawia sobie `relative`, więc dokładanie `absolute` przez className nic
+    // nie dawało (w CSS Tailwinda `.relative` jest później i wygrywa) — przycisk
+    // zostawał w przepływie i spychał wyśrodkowaną kartę w bok.
+    <div className="flex min-h-screen flex-col bg-background px-4 py-6">
+      <header className="flex justify-end">
+        <LanguagePicker />
+      </header>
 
-      <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <Image
-            src="/logo-mark.png"
-            alt=""
-            width={56}
-            height={56}
-            priority
-            className="h-14 w-14"
-          />
-          <h1 className="text-2xl font-bold text-foreground">Godzio</h1>
-          <p className="text-sm text-muted-foreground">{t("auth.tagline")}</p>
-        </div>
-
-        <div className="rounded-2xl bg-card p-5">
-          <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1">
-            {(["login", "register"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m)}
-                className={`rounded-lg py-3 text-sm font-semibold ${
-                  mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground"
-                }`}
-              >
-                {m === "login" ? t("auth.login") : t("auth.register")}
-              </button>
-            ))}
+      <div className="flex flex-1 items-center justify-center">
+        <div className="w-full max-w-sm">
+          <div className="mb-8 flex flex-col items-center gap-3 text-center">
+            <Image
+              src="/logo-mark.png"
+              alt=""
+              width={56}
+              height={56}
+              priority
+              className="h-14 w-14"
+            />
+            <h1 className="text-2xl font-bold text-foreground">Godzio</h1>
+            <p className="text-sm text-muted-foreground">{t("auth.tagline")}</p>
           </div>
 
-          {mode === "login" ? <LoginForm /> : <RegisterForm />}
-        </div>
+          <div className="rounded-2xl bg-card p-5">
+            <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1">
+              {(["login", "register"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className={`rounded-lg py-3 text-sm font-semibold ${
+                    mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  {m === "login" ? t("auth.login") : t("auth.register")}
+                </button>
+              ))}
+            </div>
 
-        <p className="mt-4 text-center text-sm text-muted-foreground">
-          <Link href="/odzyskiwanie" className="font-medium text-primary">
-            {t("auth.forgotPassword")}
-          </Link>
-        </p>
+            {mode === "login" ? <LoginForm /> : <RegisterForm />}
+          </div>
+
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            <Link href="/odzyskiwanie" className="font-medium text-primary">
+              {t("auth.forgotPassword")}
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -1,13 +1,21 @@
-import type { CurrentRates } from "./rates";
+import { RATE_CODES, type CurrentRates, type RateCode } from "./rates";
 
-export type Currency = "EUR" | "PLN";
+/**
+ * Waluta kwoty — zapisu w bazie i wyświetlania.
+ *
+ * To ten sam zestaw co waluty przeliczarki. Wcześniej były to dwa osobne typy:
+ * kwoty dało się zapisać tylko w EUR i PLN, a dolar istniał wyłącznie
+ * w przeliczarce i w raporcie. Rodziło to niespójność — można było oglądać
+ * raport w dolarach, ale nie dało się wpisać wypłaty w dolarach.
+ */
+export type Currency = RateCode;
 
 /** Waluty, w których da się zapisać kwotę i wybrać wyświetlanie. */
-export const CURRENCIES = ["PLN", "EUR"] as const satisfies readonly Currency[];
+export const CURRENCIES = RATE_CODES;
 
 /** Strażnik dla wartości z formularza albo z bazy — obie bywają tekstem. */
 export function isCurrency(value: unknown): value is Currency {
-  return value === "PLN" || value === "EUR";
+  return typeof value === "string" && (RATE_CODES as readonly string[]).includes(value);
 }
 
 /**
