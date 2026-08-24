@@ -165,19 +165,26 @@ src/app/(app)/             ekrany po zalogowaniu
 src/app/udostepnione/      publiczny podgląd wyjazdu spod linku
 ```
 
-**Logo i ikony.** Źródłem jest `assets/logo.svg` (a gdy go nie ma —
-`assets/logo-source.png`). Oba leżą poza `public/`, więc nie trafiają na serwer.
-`node scripts/make-images.mjs` robi z nich favicon, ikonę Apple, ikony do manifestu,
-znak na ekran logowania oraz kartę Open Graph 1200×630. Skrypt sam znajduje treść
-logo i przycina tło, a na ikony bierze wyłącznie znak bez napisu — w tej skali napis
-i tak byłby nieczytelny. Po podmianie logo uruchom go ponownie.
+**Logo i ikony.** Źródłem jest `assets/logo-source.png` — PNG z kanałem alfa.
+`assets/logo.svg` jest zapasem: to nie wektor, tylko ten sam rysunek opakowany
+w maskę przezroczystości, więc alfę trzeba z niego odtwarzać z luminancji.
+Oba leżą poza `public/`, więc nie trafiają na serwer.
 
-Obecny SVG nie jest wektorem, tylko PNG-iem opakowanym w maskę przezroczystości,
-i ta maska usuwa każdą biel — razem z tłem znika białe wypełnienie tarczy zegara.
-Odzyskać go nie sposób: tarcza łączy się z tłem przez otwarcie w literze G. Dlatego
-przezroczysty zostaje wyłącznie znak w interfejsie, a ikony i karta OG dostają białe
-tło. Jeśli logo ma kiedyś działać na ciemnym tle, tarcza musi być w źródle osobnym
-białym kształtem, a nie efektem ubocznym białego tła.
+`node scripts/make-images.mjs` robi z nich favicon, ikonę Apple, ikony do
+manifestu, znak na ekran logowania oraz kartę Open Graph 1200×630. Skrypt sam
+znajduje treść logo i przycina tło, a na ikony bierze wyłącznie znak bez napisu —
+w tej skali napis i tak byłby nieczytelny. Po podmianie logo uruchom go ponownie.
+
+Przezroczyste zostaje tylko `logo-mark.png`, czyli znak w interfejsie: leży
+na jasnym tle aplikacji, więc przezroczystość jest tam dokładnie tym, czego trzeba.
+Ikony i karty OG dostają białe tło, bo iOS podkłada pod ikonę czerń, launchery
+i paski kart bywają ciemne, a karty w komunikatorach renderują się zależnie
+od motywu odbiorcy — a logo jest ciemne i na ciemnym tle by zniknęło.
+
+Tarcza zegara jest w źródle przezroczysta, nie biała, i nie da się tego rozróżnić
+programowo: łączy się z tłem przez otwarcie w literze G, więc żaden algorytm nie
+odróżni jej od tła. Na jasnym tle wygląda dokładnie tak, jak powinna. Gdyby logo
+miało kiedyś działać na ciemnym, tarcza musi być w źródle osobnym białym kształtem.
 
 **Bezpieczeństwo danych.** Każde zapytanie jest zawężone do `user_id` z sesji,
 a zapisy idą przez `updateMany` / `deleteMany` z warunkiem właściciela — cudzego

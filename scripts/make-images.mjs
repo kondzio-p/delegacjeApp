@@ -121,13 +121,24 @@ function decodeSvgWrapper(text) {
   return { width: color.width, height: color.height, data };
 }
 
+/**
+ * PNG ma pierwszeństwo przed SVG.
+ *
+ * Nie dlatego, że raster bije wektor — tutaj żaden z plików nie jest wektorem.
+ * PNG niesie kanał alfa wprost, a w SVG trzeba go odtwarzać z maski luminancji,
+ * czyli z zaokrągleń. Skoro oba pochodzą z tego samego rysunku, bierzemy ten,
+ * który mówi o przezroczystości wprost.
+ */
 function loadSource() {
+  if (existsSync(PNG_SOURCE)) {
+    console.log(`źródło: ${PNG_SOURCE}`);
+    return decodePng(readFileSync(PNG_SOURCE));
+  }
   if (existsSync(SVG_SOURCE)) {
-    console.log(`źródło: ${SVG_SOURCE}`);
+    console.log(`źródło: ${SVG_SOURCE} (alfa odtwarzana z maski)`);
     return decodeSvgWrapper(readFileSync(SVG_SOURCE, "utf8"));
   }
-  console.log(`źródło: ${PNG_SOURCE}`);
-  return decodePng(readFileSync(PNG_SOURCE));
+  throw new Error(`brak źródła logo — oczekiwano ${PNG_SOURCE} albo ${SVG_SOURCE}`);
 }
 
 /* --------------------------------------------------------------- kodowanie */
