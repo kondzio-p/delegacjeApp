@@ -98,8 +98,19 @@ Następnie na [vercel.com](https://vercel.com):
 2. Framework zostanie wykryty jako **Next.js** — nic nie zmieniaj w ustawieniach builda.
 3. W **Environment Variables** dodaj `DATABASE_URL` z tą samą wartością co w `.env`
    (zaznacz Production, Preview i Development).
-   Po podpięciu własnej domeny dodaj jeszcze `NEXT_PUBLIC_SITE_URL` z jej adresem —
-   bez tego podgląd linku w Messengerze wskaże domenę `*.vercel.app`.
+   Po podpięciu własnej domeny dodaj jeszcze `NEXT_PUBLIC_SITE_URL` z jej adresem.
+   Bez tego podgląd linku wskaże domenę `*.vercel.app` — zadziała, ale będzie
+   pokazywał nie ten adres co trzeba.
+
+Jeśli podgląd linku w Messengerze albo na Facebooku jest pusty:
+
+1. Sprawdź w logach builda, czy nie ma ostrzeżenia o `metadataBase` — oznacza,
+   że aplikacja nie zna własnego adresu i `og:image` wskazuje na localhost.
+2. Sprawdź, czy w projekcie na Vercelu nie jest włączona **Deployment Protection**.
+   Przy niej robot dostaje stronę logowania Vercela zamiast aplikacji i pokazuje
+   jego logo zamiast naszego.
+3. Facebook trzyma podgląd w pamięci. Po poprawce wrzuć adres do
+   [debuggera](https://developers.facebook.com/tools/debug/) i kliknij **Scrape Again**.
 4. **Deploy**.
 
 Migracje odpalasz z własnego komputera — łączą się z tą samą bazą, więc wystarczy
