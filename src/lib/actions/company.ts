@@ -5,7 +5,8 @@ import { z } from "zod";
 
 import { endAllSessions, generateResetPassword, hashSecret } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { requireOwner, requireUser } from "@/lib/session";
+import { normalizeEmail } from "@/lib/auth";
+import { requireFounder, requireOwner, requireUser } from "@/lib/session";
 import type { ActionState } from "@/lib/types";
 
 export type ResetPasswordState = ActionState & { password?: string; employeeName?: string };
@@ -39,8 +40,22 @@ export async function setOwnerModeAction(
   const enabled = formData.get("enabled") === "true";
 
   if (!enabled) {
+    // Współwłaściciel nie kasuje cudzej firmy — może tylko odejść.
+    const coOwnership = await prisma.companyCoOwner.findFirst({
+      where: { user_id: user.id },
+      select: { company_id: true },
+    });
+    if (coOwnership) {
+      await prisma.$transaction([
+        prisma.companyCoOwner.deleteMany({ where: { user_id: user.id } }),
+        prisma.user.update({ where: { id: user.id }, data: { is_owner: false } }),
+      ]);
+      refreshCompanyViews();
+      return { success: "Zrezygnowano ze współwłasności" };
+    }
+
     // onDelete: SetNull na users.company_id — pracownicy zostają z kontami,
-    // tracą tylko powiązanie z firmą.
+    // tracą tylko powiązanie z firmą. Kaskada sprząta współwłaścicieli.
     await prisma.$transaction([
       prisma.company.deleteMany({ where: { owner_id: user.id } }),
       prisma.user.update({ where: { id: user.id }, data: { is_owner: false } }),
@@ -75,6 +90,116 @@ export async function setOwnerModeAction(
 
   refreshCompanyViews();
   return { success: "Zapisano firmę" };
+}
+
+/* --------------------------------------------------- współwłaściciele */
+
+/**
+ * Zaproszenie do współwłasności. Trafia do osoby z istniejącym kontem i czeka
+ * na jej akceptację — dopóki nie kliknie, nie ma żadnego dostępu, więc
+ * literówka w adresie jest nieszkodliwa.
+ *
+ * Przy nieznanym adresie odpowiadamy tak samo jak przy udanym zaproszeniu:
+ * nie potwierdzamy, czy dane konto istnieje.
+ */
+export async function inviteCoOwnerAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { user, company } = await requireFounder();
+
+  const parsed = z
+    .email("Podaj poprawny adres e-mail")
+    .safeParse(String(formData.get("email") ?? "").trim());
+  if (!parsed.success) return fail("Podaj poprawny adres e-mail");
+
+  const email = normalizeEmail(parsed.data);
+  const sent = { success: "Zaproszenie wysłane, jeśli takie konto istnieje" };
+
+  if (email === normalizeEmail(user.email)) return fail("To Twoje własne konto");
+
+  const invitee = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, is_deleted: true },
+  });
+  if (!invitee || invitee.is_deleted) return sent;
+
+  const alreadyCoOwner = await prisma.companyCoOwner.findFirst({
+    where: { company_id: company.id, user_id: invitee.id },
+    select: { user_id: true },
+  });
+  if (alreadyCoOwner) return fail("Ta osoba jest już współwłaścicielem");
+
+  // Właściciel innej firmy nie może współwłaścicielem tej — jedna firma na konto.
+  const ownsAnother = await prisma.company.findFirst({
+    where: { owner_id: invitee.id },
+    select: { id: true },
+  });
+  if (ownsAnother) return fail("Ta osoba prowadzi już własną firmę");
+
+  await prisma.coOwnerInvite.upsert({
+    where: { company_id_user_id: { company_id: company.id, user_id: invitee.id } },
+    create: { company_id: company.id, user_id: invitee.id },
+    update: {},
+  });
+
+  refreshCompanyViews();
+  return sent;
+}
+
+export async function acceptCoOwnerInviteAction(): Promise<ActionState> {
+  const user = await requireUser();
+
+  const invite = await prisma.coOwnerInvite.findFirst({
+    where: { user_id: user.id },
+    select: { company_id: true, company: { select: { name: true } } },
+  });
+  if (!invite) return fail("Nie znaleziono zaproszenia");
+
+  await prisma.$transaction([
+    prisma.companyCoOwner.create({
+      data: { company_id: invite.company_id, user_id: user.id },
+    }),
+    prisma.coOwnerInvite.deleteMany({ where: { user_id: user.id } }),
+    // Właściciel nie jest jednocześnie czyimś pracownikiem — tak samo jak
+    // przy włączaniu trybu właściciela.
+    prisma.joinRequest.deleteMany({ where: { user_id: user.id } }),
+    prisma.user.update({
+      where: { id: user.id },
+      data: { is_owner: true, company_id: null },
+    }),
+  ]);
+
+  refreshCompanyViews();
+  return { success: `Jesteś współwłaścicielem firmy ${invite.company.name}` };
+}
+
+export async function rejectCoOwnerInviteAction(): Promise<ActionState> {
+  const user = await requireUser();
+  await prisma.coOwnerInvite.deleteMany({ where: { user_id: user.id } });
+  refreshCompanyViews();
+  return { success: "Zaproszenie odrzucone" };
+}
+
+export async function removeCoOwnerAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { company } = await requireFounder();
+
+  const parsed = employeeId.safeParse(formData.get("user_id"));
+  if (!parsed.success) return fail("Nieprawidłowy współwłaściciel");
+
+  const { count } = await prisma.companyCoOwner.deleteMany({
+    where: { company_id: company.id, user_id: parsed.data },
+  });
+  if (count === 0) return fail("Nie znaleziono współwłaściciela");
+
+  // Traci tryb właściciela, bo nie ma już żadnej firmy.
+  await prisma.user.update({ where: { id: parsed.data }, data: { is_owner: false } });
+
+  refreshCompanyViews();
+  return { success: "Usunięto współwłaściciela" };
 }
 
 /* ------------------------------------------------------------- pracownik */

@@ -1,7 +1,18 @@
-import { convert, formatDate, hoursBetween, type Currency } from "./money";
+import { formatDate, hoursBetween, toDisplayAmount, type Currency } from "./money";
+import type { CurrentRates } from "./rates";
 import type { Expense, Payout, Trip, WorkEntry } from "./types";
 
-export const EXPENSE_CATEGORIES = ["Paliwo", "Jedzenie", "Zakwaterowanie", "Inne"] as const;
+/**
+ * Kategorie nadawane nowemu kontu. Lista każdego użytkownika żyje dalej
+ * w `users.expense_categories` — tutaj jest już tylko punkt startowy,
+ * zdublowany jako DEFAULT kolumny w migracji.
+ */
+export const DEFAULT_EXPENSE_CATEGORIES = [
+  "Paliwo",
+  "Jedzenie",
+  "Zakwaterowanie",
+  "Inne",
+] as const;
 
 /** Etykieta podróży używana w selectach i na listach. */
 export function tripLabel(trip: Pick<Trip, "departure_at" | "return_at">): string {
@@ -37,42 +48,44 @@ export type TripSummary = ReturnType<typeof summarizeTrip>;
 /**
  * Sumy z gotowego zestawu wpisów, w walucie wyświetlania.
  *
- * `accrued` to zarobek naliczony z godzin i stawek („przewidywania"),
- * `totalPayouts` to pieniądze, które faktycznie wpłynęły.
+ * Wyłącznie fakty: przepracowany czas, pieniądze które wpłynęły i te, które
+ * wyszły. Żadnych kwot naliczanych ze stawek — godziny nie niosą już pieniędzy.
  */
 export function totalsOf({
   workEntries,
   expenses,
   payouts,
   display,
-  rate,
+  rates,
 }: {
   workEntries: WorkEntry[];
   expenses: Expense[];
   payouts: Payout[];
   display: Currency;
-  rate: number;
+  /** Bieżąca tabela NBP — używana tylko tam, gdzie wpis nie ma własnego kursu. */
+  rates: CurrentRates | null;
 }) {
-  const toDisplay = (amount: number, currency: Currency) => convert(amount, currency, display, rate);
+  const toDisplay = (row: { amount: number; currency: Currency; nbp_rate: number | null }) =>
+    toDisplayAmount(Number(row.amount), row.currency, row.nbp_rate, display, rates);
 
   const workedHours = workEntries.reduce((s, e) => s + hoursBetween(e.start_time, e.end_time), 0);
-  const accrued = workEntries.reduce(
-    (s, e) => s + toDisplay(hoursBetween(e.start_time, e.end_time) * Number(e.rate), e.rate_currency),
-    0,
-  );
-  const totalPayouts = payouts.reduce((s, p) => s + toDisplay(Number(p.amount), p.currency), 0);
-  const totalExpenses = expenses.reduce((s, e) => s + toDisplay(Number(e.amount), e.currency), 0);
+  const totalPayouts = payouts.reduce((s, p) => s + toDisplay(p), 0);
+  const totalExpenses = expenses.reduce((s, e) => s + toDisplay(e), 0);
 
-  const byCategory = EXPENSE_CATEGORIES.map((category) => ({
-    category,
-    total: expenses
-      .filter((e) => e.category === category)
-      .reduce((s, e) => s + toDisplay(Number(e.amount), e.currency), 0),
-  })).filter((row) => row.total > 0);
+  // Kategorie bierzemy z samych kosztów, a nie ze stałej listy — dzięki temu
+  // wpisy z kategorii już nieużywanej nie znikają z podsumowania.
+  const categories = [...new Set(expenses.map((e) => e.category))].sort((a, b) =>
+    a.localeCompare(b, "pl"),
+  );
+  const byCategory = categories
+    .map((category) => ({
+      category,
+      total: expenses.filter((e) => e.category === category).reduce((s, e) => s + toDisplay(e), 0),
+    }))
+    .filter((row) => row.total > 0);
 
   return {
     workedHours,
-    accrued,
     totalPayouts,
     totalExpenses,
     profit: totalPayouts - totalExpenses,
@@ -95,7 +108,7 @@ export function summarizeTrip({
   expenses,
   payouts,
   display,
-  rate,
+  rates,
   now,
 }: {
   tripId: string;
@@ -105,7 +118,7 @@ export function summarizeTrip({
   expenses: Expense[];
   payouts: Payout[];
   display: Currency;
-  rate: number;
+  rates: CurrentRates | null;
   now: number;
 }) {
   const start = new Date(departureAt).getTime();
@@ -115,12 +128,12 @@ export function summarizeTrip({
   const expensesInTrip = expenses.filter((e) => e.trip_id === tripId);
   const payoutsInTrip = payouts.filter((p) => p.trip_id === tripId);
 
-  const { workedHours, accrued, totalPayouts, totalExpenses, profit, byCategory } = totalsOf({
+  const { workedHours, totalPayouts, totalExpenses, profit, byCategory } = totalsOf({
     workEntries: workInTrip,
     expenses: expensesInTrip,
     payouts: payoutsInTrip,
     display,
-    rate,
+    rates,
   });
 
   const tripHours = Math.max(0, end - start) / 3_600_000;
@@ -153,7 +166,6 @@ export function summarizeTrip({
     expensesInTrip,
     payoutsInTrip,
     workedHours,
-    accrued,
     totalPayouts,
     totalExpenses,
     profit,
@@ -169,32 +181,27 @@ export function summarizeTrip({
 }
 
 /**
- * Rozliczenie „przewidywania kontra rzeczywistość" — trzy sekcje dashboardu.
- * `accrued` to zarobek policzony z godzin i stawek, `totalPayouts` to pieniądze,
- * które faktycznie wpłynęły.
+ * Realne stawki — wyliczone z tego, co faktycznie wpłynęło, a nie z deklaracji.
+ *
+ * `actualHourly` odpowiada na „ile wyszło za godzinę przy warsztacie",
+ * `hourlyLife` na „ile wyszło za godzinę spędzoną na wyjeździe" — ta druga
+ * liczy cały czas poza domem, także wolny, i odejmuje poniesione koszty.
  */
-export function compareEarnings({
-  accrued,
+export function hourlyRates({
   totalPayouts,
   totalExpenses,
   workedHours,
   tripHours,
 }: {
-  accrued: number;
   totalPayouts: number;
   totalExpenses: number;
   workedHours: number;
   tripHours: number;
 }) {
-  const difference = accrued - totalPayouts;
   const profit = totalPayouts - totalExpenses;
 
   return {
-    difference,
-    /** Ile procent naliczonego zarobku zostało już wypłacone (0–100+). */
-    coverage: accrued > 0 ? (totalPayouts / accrued) * 100 : 0,
     profit,
-    expectedHourly: workedHours > 0 ? accrued / workedHours : 0,
     actualHourly: workedHours > 0 ? totalPayouts / workedHours : 0,
     hourlyLife: tripHours > 0 ? profit / tripHours : 0,
   };

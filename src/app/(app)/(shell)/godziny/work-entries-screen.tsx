@@ -5,9 +5,9 @@ import { useState } from "react";
 
 import { TripSelect } from "@/components/trip-select";
 import { useAction } from "@/components/use-action";
-import { CurrencyToggle, EmptyState, Field, FormMessage } from "@/components/ui";
+import { EmptyState, Field, FormMessage } from "@/components/ui";
 import { createWorkEntryAction, deleteWorkEntryAction } from "@/lib/actions/data";
-import { formatDate, formatHours, formatMoney, hoursBetween, type Currency } from "@/lib/money";
+import { formatDate, formatHours, hoursBetween } from "@/lib/money";
 import { defaultTripId, tripLabel } from "@/lib/trip-summary";
 import type { Trip, WorkEntry } from "@/lib/types";
 
@@ -15,14 +15,12 @@ export function WorkEntriesScreen({ trips, entries }: { trips: Trip[]; entries: 
   const [date, setDate] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [rate, setRate] = useState("");
-  const [currency, setCurrency] = useState<Currency>("EUR");
 
   // undefined = użytkownik jeszcze nie wybrał, więc bierzemy domyślną podróż.
   const [tripId, setTripId] = useState<string | null | undefined>(undefined);
   const effectiveTripId = tripId === undefined ? defaultTripId(trips) : tripId;
 
-  // Data, stawka i waluta zostają — kolejny wpis zwykle dotyczy tego samego wyjazdu.
+  // Data zostaje — kolejny wpis zwykle dotyczy tego samego dnia albo wyjazdu.
   const [state, formAction, pending] = useAction(createWorkEntryAction, {
     onSuccess: () => {
       setFrom("");
@@ -72,20 +70,6 @@ export function WorkEntriesScreen({ trips, entries }: { trips: Trip[]; entries: 
           </Field>
         </div>
 
-        <Field label="Stawka godzinowa">
-          <input
-            name="rate"
-            inputMode="decimal"
-            required
-            value={rate}
-            onChange={(e) => setRate(e.target.value)}
-            placeholder="15"
-            className="input-field"
-          />
-        </Field>
-
-        <CurrencyToggle name="rate_currency" value={currency} onChange={setCurrency} />
-
         <FormMessage error={state.error} />
 
         <button
@@ -117,12 +101,7 @@ export function WorkEntriesScreen({ trips, entries }: { trips: Trip[]; entries: 
                 <p className="truncate text-sm font-semibold">
                   {formatDate(entry.work_date)} · {entry.start_time}–{entry.end_time}
                 </p>
-                <p className="truncate text-sm text-muted-foreground">
-                  {formatHours(hours)} ·{" "}
-                  <span className="text-success">
-                    {formatMoney(hours * Number(entry.rate), entry.rate_currency)}
-                  </span>
-                </p>
+                <p className="truncate text-sm text-muted-foreground">{formatHours(hours)}</p>
                 <p className="mt-1 flex items-center gap-1 truncate text-xs text-muted-foreground">
                   <Plane className="h-3 w-3 shrink-0" />
                   {trip ? tripLabel(trip) : "bez przypisania"}

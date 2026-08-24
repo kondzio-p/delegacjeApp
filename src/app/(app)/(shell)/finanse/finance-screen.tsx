@@ -13,15 +13,17 @@ import {
   deletePayoutAction,
 } from "@/lib/actions/data";
 import { formatDateTime, formatMoney, type Currency } from "@/lib/money";
-import { EXPENSE_CATEGORIES, defaultTripId, tripLabel } from "@/lib/trip-summary";
+import { defaultTripId, tripLabel } from "@/lib/trip-summary";
 import type { Expense, Payout, Trip } from "@/lib/types";
 
 export function FinanceScreen({
   trips,
   expenses,
   payouts,
+  categories,
 }: {
   trips: Trip[];
+  categories: string[];
   expenses: Expense[];
   payouts: Payout[];
 }) {
@@ -79,7 +81,11 @@ export function FinanceScreen({
         </button>
       </div>
 
-      {tab === "expense" ? <ExpenseForm trips={trips} /> : <PayoutForm trips={trips} />}
+      {tab === "expense" ? (
+        <ExpenseForm trips={trips} categories={categories} />
+      ) : (
+        <PayoutForm trips={trips} />
+      )}
 
       <h2 className="mt-6 mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         Historia transakcji
@@ -126,7 +132,7 @@ export function FinanceScreen({
   );
 }
 
-function ExpenseForm({ trips }: { trips: Trip[] }) {
+function ExpenseForm({ trips, categories }: { trips: Trip[]; categories: string[] }) {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState<Currency>("EUR");
@@ -171,8 +177,8 @@ function ExpenseForm({ trips }: { trips: Trip[] }) {
       <CurrencyToggle name="currency" value={currency} onChange={setCurrency} />
 
       <Field label="Kategoria">
-        <select name="category" defaultValue="Inne" className="input-field">
-          {EXPENSE_CATEGORIES.map((c) => (
+        <select name="category" defaultValue={categories.at(-1) ?? ""} className="input-field">
+          {categories.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>

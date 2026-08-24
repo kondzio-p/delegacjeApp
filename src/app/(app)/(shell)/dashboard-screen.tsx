@@ -3,12 +3,10 @@
 import {
   ArrowDownCircle,
   ArrowUpCircle,
-  CalendarClock,
   Clock,
   Coins,
   HeartPulse,
   Plane,
-  Scale,
   Timer,
   TrendingUp,
   Wallet,
@@ -16,10 +14,11 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import { useT } from "@/components/locale-provider";
+import { useRates } from "@/components/rates-provider";
 import { useSettings } from "@/components/use-settings";
 import { CategoryBreakdown, StatCard } from "@/components/trip-summary-view";
 import { formatDateTime, formatDuration, formatHours, formatMoney } from "@/lib/money";
-import { compareEarnings, splitDaysHours, totalsOf, tripLabel } from "@/lib/trip-summary";
+import { hourlyRates, splitDaysHours, totalsOf, tripLabel } from "@/lib/trip-summary";
 import type { Expense, Payout, Trip, WorkEntry } from "@/lib/types";
 
 /** "all" = wszystko razem, bez podziału na podróże. */
@@ -36,7 +35,8 @@ export function DashboardScreen({
   expenses: Expense[];
   payouts: Payout[];
 }) {
-  const { display, setDisplay, rateInput, setRateInput, rate } = useSettings();
+  const { display, setDisplay } = useSettings();
+  const nbpRates = useRates();
   const t = useT();
   const [now, setNow] = useState(() => Date.now());
   const [scope, setScope] = useState<Scope>("all");
@@ -69,8 +69,8 @@ export function DashboardScreen({
   }, [selectedTrip, workEntries, expenses, payouts]);
 
   const totals = useMemo(
-    () => totalsOf({ ...scoped, display, rate }),
-    [scoped, display, rate],
+    () => totalsOf({ ...scoped, display, rates: nbpRates }),
+    [scoped, display, nbpRates],
   );
 
   /** Czas w delegacji: jedna podróż albo suma wszystkich. */
@@ -84,10 +84,9 @@ export function DashboardScreen({
 
   const { days: tripDays, hours: tripRest } = splitDaysHours(tripHours);
 
-  const comparison = useMemo(
+  const hourly = useMemo(
     () =>
-      compareEarnings({
-        accrued: totals.accrued,
+      hourlyRates({
         totalPayouts: totals.totalPayouts,
         totalExpenses: totals.totalExpenses,
         workedHours: totals.workedHours,
@@ -95,9 +94,6 @@ export function DashboardScreen({
       }),
     [totals, tripHours],
   );
-
-  const settled = Math.abs(comparison.difference) < 0.005;
-  const underpaid = comparison.difference > 0;
 
   return (
     <>
@@ -137,17 +133,14 @@ export function DashboardScreen({
             </button>
           ))}
         </div>
-        <label className="mt-4 block text-sm font-medium text-muted-foreground" htmlFor="rate">
-          {t("dash.rateLabel")}
-        </label>
-        <input
-          id="rate"
-          inputMode="decimal"
-          value={rateInput}
-          onChange={(e) => setRateInput(e.target.value)}
-          className="input-field mt-2 text-lg font-semibold"
-          placeholder="4.35"
-        />
+        {nbpRates && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            {t("dash.rateFromNbp", {
+              rate: nbpRates.rates.EUR.toFixed(4),
+              date: nbpRates.effectiveDate,
+            })}
+          </p>
+        )}
       </section>
 
       {live && (
@@ -204,39 +197,32 @@ export function DashboardScreen({
         </section>
       )}
 
-      {/* ------------------------------------------------- 1. Przewidywania */}
+      {/* ------------------------------------------------------- 1. Czas */}
 
       <SectionHeader
-        icon={<CalendarClock className="h-5 w-5 text-primary" />}
-        title={t("dash.forecastTitle")}
-        subtitle={t("dash.forecastSubtitle")}
+        icon={<Clock className="h-5 w-5 text-primary" />}
+        title={t("dash.timeTitle")}
+        subtitle={t("dash.timeSubtitle")}
       />
       <section className="grid grid-cols-2 gap-3">
-        <div className="col-span-2 min-w-0">
-          <StatCard
-            icon={<Coins className="h-5 w-5 text-primary" />}
-            label={t("dash.accrued")}
-            value={formatMoney(totals.accrued, display)}
-          />
-        </div>
         <StatCard
           icon={<Clock className="h-5 w-5 text-primary" />}
           label={t("dash.workedHours")}
           value={formatHours(totals.workedHours)}
         />
         <StatCard
-          icon={<CalendarClock className="h-5 w-5 text-primary" />}
-          label={t("dash.avgHourly")}
-          value={formatMoney(comparison.expectedHourly, display)}
+          icon={<Plane className="h-5 w-5 text-primary" />}
+          label={t("dash.timeAway")}
+          value={`${tripDays} ${t("dash.unitDays")} ${tripRest} h`}
         />
       </section>
 
-      {/* -------------------------------------------- 2. Właściwe zarobki */}
+      {/* --------------------------------------------------- 2. Pieniądze */}
 
       <SectionHeader
         icon={<Wallet className="h-5 w-5 text-success" />}
-        title={t("dash.actualTitle")}
-        subtitle={t("dash.actualSubtitle")}
+        title={t("dash.moneyTitle")}
+        subtitle={t("dash.moneySubtitle")}
       />
       <section className="grid grid-cols-2 gap-3">
         <StatCard
@@ -259,58 +245,24 @@ export function DashboardScreen({
         </div>
       </section>
 
-      {/* ------------------------------------------------- 3. Porównanie */}
+      {/* ----------------------------------------------- 3. Realne stawki */}
 
       <SectionHeader
-        icon={<Scale className="h-5 w-5 text-accent" />}
-        title={t("dash.comparisonTitle")}
-        subtitle={t("dash.comparisonSubtitle")}
+        icon={<Coins className="h-5 w-5 text-accent" />}
+        title={t("dash.ratesTitle")}
+        subtitle={t("dash.ratesSubtitle")}
       />
-      <section className="rounded-2xl bg-card p-4">
-        <p className="text-xs text-muted-foreground">
-          {settled ? t("dash.settled") : underpaid ? t("dash.missing") : t("dash.overpaid")}
-        </p>
-        <p
-          className={`mt-2 break-words text-2xl font-bold tabular-nums ${
-            settled ? "text-foreground" : underpaid ? "text-destructive" : "text-success"
-          }`}
-        >
-          {formatMoney(Math.abs(comparison.difference), display)}
-        </p>
-
-        <div className="mt-4 h-3 w-full overflow-hidden rounded-full bg-secondary">
-          <div
-            className={`h-full rounded-full ${comparison.coverage >= 100 ? "bg-success" : "bg-primary"}`}
-            style={{ width: `${Math.min(100, Math.max(0, comparison.coverage))}%` }}
-          />
-        </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {t("dash.coverage", {
-            pct: totals.accrued > 0 ? `${Math.round(comparison.coverage)}%` : "—",
-            paid: formatMoney(totals.totalPayouts, display),
-            accrued: formatMoney(totals.accrued, display),
-          })}
-        </p>
-      </section>
-
-      <section className="mt-3 grid grid-cols-2 gap-3">
-        <StatCard
-          icon={<Coins className="h-5 w-5 text-primary" />}
-          label={t("dash.rateFromEntries")}
-          value={formatMoney(comparison.expectedHourly, display)}
-        />
+      <section className="grid grid-cols-2 gap-3">
         <StatCard
           icon={<Coins className="h-5 w-5 text-accent" />}
           label={t("dash.realHourlyWork")}
-          value={formatMoney(comparison.actualHourly, display)}
+          value={formatMoney(hourly.actualHourly, display)}
         />
-        <div className="col-span-2 min-w-0">
-          <StatCard
-            icon={<HeartPulse className="h-5 w-5 text-accent" />}
-            label={t("dash.realHourlyLife")}
-            value={formatMoney(comparison.hourlyLife, display)}
-          />
-        </div>
+        <StatCard
+          icon={<HeartPulse className="h-5 w-5 text-accent" />}
+          label={t("dash.realHourlyLife")}
+          value={formatMoney(hourly.hourlyLife, display)}
+        />
       </section>
 
       <CategoryBreakdown byCategory={totals.byCategory} display={display} />

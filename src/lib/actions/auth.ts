@@ -88,13 +88,13 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
 
   const user = await prisma.user.findUnique({
     where: { email: normalizeEmail(parsed.data.email) },
-    select: { id: true, password_hash: true },
+    select: { id: true, password_hash: true, is_deleted: true },
   });
 
-  // Ten sam komunikat dla nieznanego adresu i złego hasła — nie zdradzamy,
-  // które konta istnieją.
+  // Ten sam komunikat dla nieznanego adresu, złego hasła i konta usuniętego —
+  // nie zdradzamy, które konta istnieją.
   const invalid = fail("Nieprawidłowy e-mail lub hasło");
-  if (!user) return invalid;
+  if (!user || user.is_deleted) return invalid;
   if (!(await verifySecret(parsed.data.password, user.password_hash))) return invalid;
 
   await startSession(user.id);
@@ -126,11 +126,11 @@ export async function recoverAction(_prev: CodeState, formData: FormData): Promi
 
   const user = await prisma.user.findUnique({
     where: { email: normalizeEmail(parsed.data.email) },
-    select: { id: true, recovery_code_hash: true },
+    select: { id: true, recovery_code_hash: true, is_deleted: true },
   });
 
   const invalid = fail("Nieprawidłowy e-mail lub kod odzyskiwania");
-  if (!user) return invalid;
+  if (!user || user.is_deleted) return invalid;
   if (!(await verifySecret(normalizeRecoveryCode(parsed.data.code), user.recovery_code_hash))) {
     return invalid;
   }

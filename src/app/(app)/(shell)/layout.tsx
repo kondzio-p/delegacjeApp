@@ -1,4 +1,6 @@
 import { AppShell } from "@/components/app-shell";
+import { RatesProvider } from "@/components/rates-provider";
+import { getCurrentRates } from "@/lib/nbp";
 import { requireUser } from "@/lib/session";
 
 /**
@@ -6,9 +8,17 @@ import { requireUser } from "@/lib/session";
  * stronie z osobna. Przy zmianie widoku Next podmienia wyłącznie segment strony,
  * więc powłoka zostaje zamontowana i pozostaje klikalna w trakcie ładowania.
  *
+ * Kursy NBP pobieramy tutaj raz dla wszystkich ekranów — odpowiedź jest
+ * cache'owana na godzinę, więc nawigacja ich nie odpytuje ponownie.
+ *
  * Ekran powitalny `/witaj` celowo jest poza tą grupą — leci na pełnym ekranie.
  */
 export default async function ShellLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireUser();
-  return <AppShell user={user}>{children}</AppShell>;
+  const [user, rates] = await Promise.all([requireUser(), getCurrentRates()]);
+
+  return (
+    <RatesProvider rates={rates}>
+      <AppShell user={user}>{children}</AppShell>
+    </RatesProvider>
+  );
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { getCurrentRates } from "@/lib/nbp";
 import { getSharedTrip } from "@/lib/queries";
 
 import { SharedTripScreen, Unavailable } from "./shared-trip-screen";
@@ -20,12 +21,14 @@ export default async function SharedTripPage({
 
   if (!token) return <Unavailable message="Brak tokenu w adresie linku." />;
 
-  const payload = await getSharedTrip(token);
+  const [payload, rates] = await Promise.all([getSharedTrip(token), getCurrentRates()]);
   if (!payload) {
     return (
       <Unavailable message="Ten link jest nieaktywny. Właściciel wyłączył udostępnianie albo adres jest nieprawidłowy." />
     );
   }
 
-  return <SharedTripScreen payload={payload} />;
+  // Ta strona jest poza powłoką aplikacji, więc kursy podajemy propsem,
+  // a nie przez RatesProvider.
+  return <SharedTripScreen payload={payload} rates={rates} />;
 }

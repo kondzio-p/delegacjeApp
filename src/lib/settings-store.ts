@@ -1,5 +1,8 @@
-// Waluta wyświetlania i kurs EUR/PLN. To ustawienie urządzenia, nie konta —
-// nie trafia do bazy, więc trzymamy je w localStorage.
+// Waluta wyświetlania. To ustawienie urządzenia, nie konta — nie trafia do
+// bazy, więc trzymamy je w localStorage.
+//
+// Kursu nikt już nie wpisuje ręcznie: pochodzi z NBP i jest zamrażany przy
+// każdym wpisie, więc tutaj została sama waluta.
 //
 // Zewnętrzny store zamiast useState + useEffect: serwer renderuje wartości
 // domyślne, a po zamontowaniu komponent czyta zapisane ustawienia przez
@@ -7,10 +10,9 @@
 // hydracji, a zmiana ustawień w jednej zakładce dociera do pozostałych.
 import type { Currency } from "./money";
 
-export type Settings = { display: Currency; rateInput: string };
+export type Settings = { display: Currency };
 
-export const DEFAULT_SETTINGS: Settings = { display: "PLN", rateInput: "4.35" };
-export const DEFAULT_RATE = 4.35;
+export const DEFAULT_SETTINGS: Settings = { display: "PLN" };
 
 const STORAGE_KEY = "delegacje.settings";
 
@@ -27,8 +29,6 @@ function readStorage(): Settings {
     const parsed = JSON.parse(raw) as Partial<Settings>;
     return {
       display: parsed.display === "EUR" || parsed.display === "PLN" ? parsed.display : "PLN",
-      rateInput:
-        typeof parsed.rateInput === "string" ? parsed.rateInput : DEFAULT_SETTINGS.rateInput,
     };
   } catch {
     // Uszkodzony wpis w localStorage nie może wywalić aplikacji.
@@ -82,8 +82,3 @@ export function updateSettings(patch: Partial<Settings>): void {
   emit();
 }
 
-/** Kurs jako liczba; nieprawidłowy wpis („4,,5") wraca do wartości domyślnej. */
-export function parseRate(rateInput: string): number {
-  const parsed = Number.parseFloat(rateInput.replace(",", "."));
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_RATE;
-}

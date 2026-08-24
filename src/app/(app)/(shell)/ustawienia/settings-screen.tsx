@@ -1,6 +1,21 @@
 "use client";
 
-import { Building2, KeyRound, LogOut, ShieldAlert, UserRound } from "lucide-react";
+import {
+  Building2,
+  Check,
+  Download,
+  KeyRound,
+  LogOut,
+  Pencil,
+  Plus,
+  ShieldAlert,
+  ShieldCheck,
+  Tags,
+  Trash2,
+  UserRound,
+  Users,
+  X,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -16,17 +31,31 @@ import {
   type CodeState,
 } from "@/lib/actions/auth";
 import {
+  addExpenseCategoryAction,
+  removeExpenseCategoryAction,
+  renameExpenseCategoryAction,
+} from "@/lib/actions/data";
+import {
+  acceptCoOwnerInviteAction,
   cancelJoinRequestAction,
+  inviteCoOwnerAction,
   leaveCompanyAction,
+  rejectCoOwnerInviteAction,
+  removeCoOwnerAction,
   requestJoinAction,
   setOwnerModeAction,
 } from "@/lib/actions/company";
+import { deleteMyAccountAction, exportMyDataAction } from "@/lib/actions/privacy";
+import { DELETE_CONFIRMATION } from "@/lib/privacy";
 import type { ActionState, SessionUser } from "@/lib/types";
 
 type CompanyStatus = {
   employerName: string | null;
   ownCompanyName: string | null;
   pendingCompanyName: string | null;
+  coOwners: { id: string; name: string; email: string }[];
+  inviteCompanyName: string | null;
+  coOwnedCompanyName: string | null;
 };
 
 export function SettingsScreen({
@@ -36,7 +65,7 @@ export function SettingsScreen({
   user: SessionUser;
   status: CompanyStatus;
 }) {
-  const { display, setDisplay, rateInput, setRateInput } = useSettings();
+  const { display, setDisplay } = useSettings();
 
   return (
     <>
@@ -53,10 +82,12 @@ export function SettingsScreen({
       <PasswordSection />
       <RecoveryCodeSection />
       <CompanySection user={user} status={status} />
+      <CategoriesSection categories={user.expense_categories} />
+      <CoOwnersSection status={status} />
 
       <section className="mt-4 rounded-2xl bg-card p-4">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Waluta i kurs
+          Waluta wyświetlania
         </h2>
         <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1">
           {(["EUR", "PLN"] as const).map((c) => (
@@ -72,18 +103,13 @@ export function SettingsScreen({
             </button>
           ))}
         </div>
-        <input
-          inputMode="decimal"
-          value={rateInput}
-          onChange={(e) => setRateInput(e.target.value)}
-          className="input-field mt-3"
-          placeholder="4.35"
-          aria-label="Kurs EUR"
-        />
-        <p className="mt-2 text-xs text-muted-foreground">
-          Kurs i waluta są zapisane na tym urządzeniu — nie trafiają do bazy.
+        <p className="mt-3 text-xs text-muted-foreground">
+          Waluta jest zapisana na tym urządzeniu — nie trafia do bazy. Kursy pobieramy z NBP,
+          a przy każdym wpisie zapamiętujemy kurs z jego dnia, żeby historia się nie zmieniała.
         </p>
       </section>
+
+      <PrivacySection />
 
       <form action={logoutAction}>
         <button
@@ -94,6 +120,368 @@ export function SettingsScreen({
         </button>
       </form>
     </>
+  );
+}
+
+/**
+ * Lista kategorii kosztów. Usunięcie pozycji nie rusza istniejących wpisów —
+ * kategoria jest w nich tekstem, więc stary koszt dalej pokazuje swoją nazwę
+ * i wchodzi do podsumowania. Zmiana nazwy przenosi natomiast również wpisy,
+ * bo tego oczekuje ktoś, kto poprawia literówkę.
+ */
+function CategoriesSection({ categories }: { categories: string[] }) {
+  const [addState, addAction, addPending] = useAction(addExpenseCategoryAction, {
+    toastError: true,
+  });
+  const [renaming, setRenaming] = useState<string | null>(null);
+
+  return (
+    <section className="mt-4 rounded-2xl bg-card p-4">
+      <div className="flex items-center gap-2">
+        <Tags className="h-5 w-5 shrink-0 text-primary" />
+        <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Kategorie kosztów
+        </h2>
+      </div>
+
+      <ul className="mt-3 space-y-2">
+        {categories.map((category) =>
+          renaming === category ? (
+            <li key={category}>
+              <RenameCategoryForm
+                category={category}
+                onDone={() => setRenaming(null)}
+              />
+            </li>
+          ) : (
+            <li
+              key={category}
+              className="flex items-center gap-2 rounded-xl bg-secondary px-4 py-2"
+            >
+              <span className="min-w-0 flex-1 truncate text-sm">{category}</span>
+              <button
+                type="button"
+                onClick={() => setRenaming(category)}
+                aria-label={`Zmień nazwę kategorii ${category}`}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground active:bg-card"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <RemoveCategoryButton category={category} />
+            </li>
+          ),
+        )}
+      </ul>
+
+      <form action={addAction} className="mt-3 flex gap-2">
+        <input
+          name="name"
+          required
+          maxLength={30}
+          placeholder="Nowa kategoria"
+          className="input-field input-field-compact min-w-0 flex-1"
+        />
+        <button
+          type="submit"
+          disabled={addPending}
+          aria-label="Dodaj kategorię"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground disabled:opacity-60"
+        >
+          <Plus className="h-5 w-5" />
+        </button>
+      </form>
+      <FormMessage error={addState.error} />
+
+      <p className="mt-3 text-xs text-muted-foreground">
+        Usunięcie kategorii nie kasuje kosztów — dotychczasowe wpisy zachowują swoją nazwę.
+      </p>
+    </section>
+  );
+}
+
+function RenameCategoryForm({
+  category,
+  onDone,
+}: {
+  category: string;
+  onDone: () => void;
+}) {
+  const [state, action, pending] = useAction(renameExpenseCategoryAction, {
+    toastError: true,
+    onSuccess: onDone,
+  });
+
+  return (
+    <form action={action} className="flex gap-2">
+      <input type="hidden" name="from" value={category} />
+      <input
+        name="to"
+        required
+        maxLength={30}
+        defaultValue={category}
+        autoFocus
+        className="input-field input-field-compact min-w-0 flex-1"
+      />
+      <button
+        type="submit"
+        disabled={pending}
+        className="flex h-12 shrink-0 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+      >
+        Zapisz
+      </button>
+      <button
+        type="button"
+        onClick={onDone}
+        aria-label="Anuluj"
+        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-secondary"
+      >
+        <X className="h-5 w-5" />
+      </button>
+      <FormMessage error={state.error} />
+    </form>
+  );
+}
+
+function RemoveCategoryButton({ category }: { category: string }) {
+  const [, action, pending] = useAction(removeExpenseCategoryAction, { toastError: true });
+
+  return (
+    <form action={action}>
+      <input type="hidden" name="name" value={category} />
+      <button
+        type="submit"
+        disabled={pending}
+        aria-label={`Usuń kategorię ${category}`}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-destructive active:bg-card disabled:opacity-50"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </form>
+  );
+}
+
+/**
+ * Współwłaściciele firmy. Zaproszenie trafia do istniejącego konta i czeka
+ * na akceptację — bez niej zaproszony nie ma żadnego dostępu, więc literówka
+ * w adresie jest nieszkodliwa. Zarządzać może wyłącznie założyciel.
+ */
+function CoOwnersSection({ status }: { status: CompanyStatus }) {
+  const [inviteState, inviteAction, invitePending] = useAction(inviteCoOwnerAction);
+
+  // Zaproszony widzi tę sekcję jako decyzję do podjęcia.
+  if (status.inviteCompanyName) {
+    return (
+      <section className="mt-4 rounded-2xl border border-accent/40 bg-card p-4">
+        <div className="flex items-center gap-2">
+          <Users className="h-5 w-5 shrink-0 text-accent" />
+          <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Zaproszenie do współwłasności
+          </h2>
+        </div>
+        <p className="mt-3 text-sm">
+          Firma <span className="font-semibold">{status.inviteCompanyName}</span> zaprasza Cię jako
+          współwłaściciela. Zyskasz dostęp do pracowników i raportów.
+        </p>
+        <div className="mt-3 flex gap-2">
+          <SimpleActionButton
+            action={acceptCoOwnerInviteAction}
+            label="Akceptuj"
+            className="bg-success text-success-foreground"
+          />
+          <SimpleActionButton action={rejectCoOwnerInviteAction} label="Odrzuć" />
+        </div>
+      </section>
+    );
+  }
+
+  if (status.coOwnedCompanyName) {
+    return (
+      <section className="mt-4 rounded-2xl bg-card p-4">
+        <div className="flex items-center gap-2">
+          <Users className="h-5 w-5 shrink-0 text-primary" />
+          <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Współwłasność
+          </h2>
+        </div>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Jesteś współwłaścicielem firmy{" "}
+          <span className="font-semibold text-foreground">{status.coOwnedCompanyName}</span>. Możesz
+          wszystko poza skasowaniem firmy i zarządzaniem współwłaścicielami.
+        </p>
+      </section>
+    );
+  }
+
+  // Tylko założyciel z zapisaną firmą zarządza listą.
+  if (!status.ownCompanyName) return null;
+
+  return (
+    <section className="mt-4 rounded-2xl bg-card p-4">
+      <div className="flex items-center gap-2">
+        <Users className="h-5 w-5 shrink-0 text-primary" />
+        <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Współwłaściciele
+        </h2>
+      </div>
+
+      {status.coOwners.length === 0 ? (
+        <p className="mt-3 text-sm text-muted-foreground">Nikt jeszcze nie współprowadzi firmy.</p>
+      ) : (
+        <ul className="mt-3 space-y-2">
+          {status.coOwners.map((coOwner) => (
+            <li
+              key={coOwner.id}
+              className="flex items-center gap-2 rounded-xl bg-secondary px-4 py-2"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{coOwner.name}</span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {coOwner.email}
+                </span>
+              </span>
+              <RemoveCoOwnerButton userId={coOwner.id} name={coOwner.name} />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <form action={inviteAction} className="mt-3 space-y-3">
+        <Field label="E-mail istniejącego konta">
+          <input
+            name="email"
+            type="email"
+            required
+            placeholder="wspolnik@example.com"
+            className="input-field"
+          />
+        </Field>
+        <FormMessage error={inviteState.error} success={inviteState.success} />
+        <button
+          type="submit"
+          disabled={invitePending}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-secondary text-sm font-semibold disabled:opacity-60"
+        >
+          <Plus className="h-4 w-4 shrink-0" /> Zaproś współwłaściciela
+        </button>
+      </form>
+
+      <p className="mt-3 text-xs text-muted-foreground">
+        Zaproszony musi mieć konto i potwierdzić zaproszenie u siebie w ustawieniach.
+        Współwłaściciel nie może skasować firmy ani usunąć Ciebie.
+      </p>
+    </section>
+  );
+}
+
+function RemoveCoOwnerButton({ userId, name }: { userId: string; name: string }) {
+  const [, action, pending] = useAction(removeCoOwnerAction, { toastError: true });
+
+  return (
+    <form action={action}>
+      <input type="hidden" name="user_id" value={userId} />
+      <button
+        type="submit"
+        disabled={pending}
+        aria-label={`Usuń współwłaściciela ${name}`}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-destructive active:bg-card disabled:opacity-50"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </form>
+  );
+}
+
+/** Zgoda, eksport własnych danych i usunięcie konta — obowiązki z RODO. */
+function PrivacySection() {
+  const [deleteState, deleteAction, deletePending] = useAction(deleteMyAccountAction);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  async function exportData() {
+    setExporting(true);
+    try {
+      const result = await exportMyDataAction();
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      if (!result.json) return;
+
+      // Plik składamy w przeglądarce — serwer oddaje sam tekst.
+      const url = URL.createObjectURL(new Blob([result.json], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `delegacje-moje-dane-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success("Pobrano Twoje dane");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  return (
+    <section className="mt-4 rounded-2xl bg-card p-4">
+      <div className="flex items-center gap-2">
+        <ShieldCheck className="h-5 w-5 shrink-0 text-primary" />
+        <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Prywatność i Twoje dane
+        </h2>
+      </div>
+
+      <p className="mt-3 rounded-xl bg-secondary px-4 py-3 text-sm text-muted-foreground">
+        Korzystając z aplikacji zgadzasz się, aby właściciel firmy, do której należysz, widział
+        Twoje <span className="font-medium text-foreground">godziny pracy i wypłaty</span>. Twoje
+        koszty pozostają prywatne — nikt poza Tobą ich nie widzi.
+      </p>
+
+      <button
+        type="button"
+        onClick={exportData}
+        disabled={exporting}
+        className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-secondary text-sm font-semibold disabled:opacity-60"
+      >
+        <Download className="h-4 w-4 shrink-0" /> Pobierz moje dane (JSON)
+      </button>
+
+      {!confirmOpen ? (
+        <button
+          type="button"
+          onClick={() => setConfirmOpen(true)}
+          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-destructive text-sm font-semibold text-destructive"
+        >
+          <Trash2 className="h-4 w-4 shrink-0" /> Usuń konto
+        </button>
+      ) : (
+        <form action={deleteAction} className="mt-3 space-y-3 rounded-xl bg-secondary p-4">
+          <p className="text-sm">
+            Twoje dane osobowe znikną, a konto przestanie działać. Godziny pracy i wypłaty zostaną
+            u pracodawcy jako zapis rozliczenia — bez powiązania z Tobą. Koszty zostaną skasowane.
+            Tego nie da się cofnąć.
+          </p>
+          <Field label={`Przepisz słowo ${DELETE_CONFIRMATION}`}>
+            <input name="confirm" required autoFocus className="input-field" />
+          </Field>
+          <FormMessage error={deleteState.error} />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmOpen(false)}
+              className="flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-card text-sm font-semibold"
+            >
+              <X className="h-4 w-4 shrink-0" /> Anuluj
+            </button>
+            <button
+              type="submit"
+              disabled={deletePending}
+              className="flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-destructive text-sm font-semibold text-destructive-foreground disabled:opacity-60"
+            >
+              <Check className="h-4 w-4 shrink-0" /> Usuń konto
+            </button>
+          </div>
+        </form>
+      )}
+    </section>
   );
 }
 
@@ -331,7 +719,7 @@ function CompanySection({ user, status }: { user: SessionUser; status: CompanySt
               <p className="text-sm font-semibold">Pracujesz w firmie</p>
               <p className="mt-1 break-words text-base font-medium">{status.employerName}</p>
               <p className="mt-2 text-xs text-muted-foreground">
-                Właściciel widzi Twoje godziny pracy. Kosztów i wypłat nie widzi.
+                Właściciel widzi Twoje godziny pracy i wypłaty. Twoich kosztów nie widzi.
               </p>
               <SimpleActionButton
                 action={leaveCompanyAction}

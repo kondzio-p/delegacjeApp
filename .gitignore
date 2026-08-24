@@ -47,3 +47,6 @@ next-env.d.ts
 
 # Prisma
 /src/generated/
+
+# Zrzuty danych z bazy (zawierają dane osobowe)
+work_entries_rates_*.csv

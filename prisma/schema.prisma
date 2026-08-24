@@ -28,16 +28,24 @@ model User {
   company_id           String?  @db.Uuid
   /// Włączane przy resecie hasła przez właściciela; wyłącza je zmiana hasła.
   must_change_password Boolean  @default(false)
+  /// Własne kategorie kosztów. Zwykła lista tekstów, bo nie mają żadnych
+  /// własnych atrybutów — osobna tabela byłaby tu przerostem formy.
+  expense_categories   String[] @default(["Paliwo", "Jedzenie", "Zakwaterowanie", "Inne"])
+  /// Konto zanonimizowane na żądanie użytkownika. Dane osobowe zniknęły,
+  /// godziny i wypłaty zostały, bo to zapis rozliczenia z firmą.
+  is_deleted           Boolean  @default(false)
   created_at           DateTime @default(now()) @db.Timestamptz(6)
 
-  company       Company?     @relation("CompanyEmployees", fields: [company_id], references: [id], onDelete: SetNull)
-  owned_company Company?     @relation("CompanyOwner")
-  join_request  JoinRequest?
-  sessions      Session[]
-  trips         Trip[]
-  work_entries  WorkEntry[]
-  expenses      Expense[]
-  payouts       Payout[]
+  company          Company?         @relation("CompanyEmployees", fields: [company_id], references: [id], onDelete: SetNull)
+  owned_company    Company?         @relation("CompanyOwner")
+  join_request     JoinRequest?
+  co_ownerships    CompanyCoOwner[]
+  co_owner_invites CoOwnerInvite[]
+  sessions         Session[]
+  trips            Trip[]
+  work_entries     WorkEntry[]
+  expenses         Expense[]
+  payouts          Payout[]
 
   @@index([company_id])
   @@map("users")
@@ -52,9 +60,11 @@ model Company {
   owner_id   String   @unique @db.Uuid
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
-  owner          User          @relation("CompanyOwner", fields: [owner_id], references: [id], onDelete: Cascade)
-  employees      User[]        @relation("CompanyEmployees")
-  join_requests  JoinRequest[]
+  owner            User             @relation("CompanyOwner", fields: [owner_id], references: [id], onDelete: Cascade)
+  employees        User[]           @relation("CompanyEmployees")
+  join_requests    JoinRequest[]
+  co_owners        CompanyCoOwner[]
+  co_owner_invites CoOwnerInvite[]
 
   @@map("companies")
 }
@@ -72,6 +82,38 @@ model JoinRequest {
 
   @@index([company_id])
   @@map("join_requests")
+}
+
+/// Współwłaściciel firmy. Założyciel siedzi dalej w `Company.owner_id` —
+/// ta tabela dokłada pozostałych. Współwłaściciel może wszystko poza
+/// skasowaniem firmy i usunięciem założyciela.
+model CompanyCoOwner {
+  company_id String   @db.Uuid
+  user_id    String   @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  company Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([company_id, user_id])
+  @@index([user_id])
+  @@map("company_co_owners")
+}
+
+/// Zaproszenie do współwłasności czekające na akceptację. Dopóki zaproszony
+/// nie kliknie „Akceptuj", nie ma żadnego dostępu — dzięki temu literówka
+/// w adresie e-mail jest nieszkodliwa.
+model CoOwnerInvite {
+  company_id String   @db.Uuid
+  user_id    String   @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  company Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([company_id, user_id])
+  @@index([user_id])
+  @@map("co_owner_invites")
 }
 
 /// Sesja logowania. Token trafia do ciasteczka httpOnly, w bazie leży wyłącznie
@@ -108,6 +150,8 @@ model Trip {
   @@map("trips")
 }
 
+/// Czysty zapis czasu — żadnych kwot. Pieniądze mieszkają w Expense i Payout.
+///
 /// ON DELETE SET NULL na trip_id: skasowanie podróży odpina wpisy, nie kasuje ich.
 model WorkEntry {
   id      String  @id @default(uuid()) @db.Uuid
@@ -118,12 +162,10 @@ model WorkEntry {
   /// postaci, w jakiej wpisuje je formularz. Kolumny DATE/TIME wracałyby ze
   /// sterownika jako obiekty Date i wymagały konwersji stref czasowych tam, gdzie
   /// żadna strefa nie jest potrzebna. Sortowanie leksykograficzne działa poprawnie.
-  work_date     String   @db.VarChar(10)
-  start_time    String   @db.VarChar(5)
-  end_time      String   @db.VarChar(5)
-  rate          Decimal  @default(0) @db.Decimal(12, 2)
-  rate_currency String   @default("EUR") @db.VarChar(3)
-  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  work_date  String   @db.VarChar(10)
+  start_time String   @db.VarChar(5)
+  end_time   String   @db.VarChar(5)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
 
   user User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
   trip Trip? @relation(fields: [trip_id], references: [id], onDelete: SetNull)
@@ -144,6 +186,14 @@ model Expense {
   spent_at   DateTime @default(now()) @db.Timestamptz(6)
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
+  /// Kurs NBP z dnia tego wpisu: ile PLN za jedną jednostkę `currency`.
+  /// Dla kwot w PLN wynosi 1. Null oznacza, że NBP nie odpowiedziało przy
+  /// zapisie — wtedy odczyt sięga po kurs bieżący.
+  nbp_rate      Decimal? @db.Decimal(12, 6)
+  /// Data publikacji tabeli NBP użytej do przeliczenia. Bywa wcześniejsza niż
+  /// data wpisu, bo w weekendy i święta kursów się nie publikuje.
+  nbp_rate_date String?  @db.VarChar(10)
+
   user User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
   trip Trip? @relation(fields: [trip_id], references: [id], onDelete: SetNull)
 
@@ -161,6 +211,14 @@ model Payout {
   note       String?
   paid_at    DateTime @default(now()) @db.Timestamptz(6)
   created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  /// Kurs NBP z dnia tego wpisu: ile PLN za jedną jednostkę `currency`.
+  /// Dla kwot w PLN wynosi 1. Null oznacza, że NBP nie odpowiedziało przy
+  /// zapisie — wtedy odczyt sięga po kurs bieżący.
+  nbp_rate      Decimal? @db.Decimal(12, 6)
+  /// Data publikacji tabeli NBP użytej do przeliczenia. Bywa wcześniejsza niż
+  /// data wpisu, bo w weekendy i święta kursów się nie publikuje.
+  nbp_rate_date String?  @db.VarChar(10)
 
   user User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
   trip Trip? @relation(fields: [trip_id], references: [id], onDelete: SetNull)

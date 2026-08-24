@@ -19,6 +19,11 @@ export default async function FinancePage() {
   ]);
 
   return (
-    <FinanceScreen trips={trips} expenses={expenses} payouts={payouts} />
+    <FinanceScreen
+      trips={trips}
+      expenses={expenses}
+      payouts={payouts}
+      categories={user.expense_categories}
+    />
   );
 }

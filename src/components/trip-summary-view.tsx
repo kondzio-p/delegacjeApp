@@ -3,7 +3,6 @@
 import {
   ArrowDownCircle,
   ArrowUpCircle,
-  CalendarClock,
   Clock,
   Coins,
   HeartPulse,
@@ -62,11 +61,6 @@ export function TripStatsGrid({ summary, display }: { summary: TripSummary; disp
         icon={<Clock className="h-5 w-5 text-primary" />}
         label="Przepracowane godziny"
         value={formatHours(summary.workedHours)}
-      />
-      <StatCard
-        icon={<CalendarClock className="h-5 w-5 text-primary" />}
-        label="Zarobek wg stawek"
-        value={formatMoney(summary.accrued, display)}
       />
       <StatCard
         icon={<ArrowUpCircle className="h-5 w-5 text-success" />}
@@ -147,12 +141,7 @@ export function WorkEntriesList({ summary }: { summary: TripSummary }) {
                 <p className="truncate text-sm font-semibold">
                   {formatDate(entry.work_date)} · {entry.start_time}–{entry.end_time}
                 </p>
-                <p className="truncate text-sm text-muted-foreground">
-                  {formatHours(hours)} ·{" "}
-                  <span className="text-success">
-                    {formatMoney(hours * Number(entry.rate), entry.rate_currency)}
-                  </span>
-                </p>
+                <p className="truncate text-sm text-muted-foreground">{formatHours(hours)}</p>
               </div>
             </div>
           );

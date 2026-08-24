@@ -5,12 +5,13 @@ import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db";
+import { getRateForDate } from "@/lib/nbp";
+import { isoDate } from "@/lib/rates";
 import { requireOwner, requireUser } from "@/lib/session";
 import type { ActionState } from "@/lib/types";
 
 const uuid = z.uuid("Nieprawidłowy identyfikator");
 const currency = z.enum(["EUR", "PLN"]);
-const category = z.enum(["Paliwo", "Jedzenie", "Zakwaterowanie", "Inne"]);
 const localDateTime = z.string().min(1, "Podaj datę i godzinę");
 const dayString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Nieprawidłowa data");
 const timeString = z.string().regex(/^\d{2}:\d{2}$/, "Nieprawidłowa godzina");
@@ -77,6 +78,24 @@ async function resolveTripId(userId: string, value: FormDataEntryValue | null) {
 
 function refreshAll() {
   revalidatePath("/", "layout");
+}
+
+/**
+ * Kurs NBP zamrażany przy kwocie — ile PLN była warta jednostka tej waluty
+ * w dniu operacji. Dzięki temu podsumowanie za marzec wygląda tak samo
+ * w czerwcu, niezależnie od tego, co kurs zrobił w międzyczasie.
+ *
+ * Brak odpowiedzi z NBP nie może wywalić zapisu: zwracamy null, a odczyt
+ * sięgnie wtedy po kurs bieżący.
+ */
+async function freezeRate(currency: "EUR" | "PLN") {
+  const today = isoDate(new Date());
+  if (currency === "PLN") return { nbp_rate: 1, nbp_rate_date: today };
+
+  const rate = await getRateForDate(currency, today);
+  return rate
+    ? { nbp_rate: rate.mid, nbp_rate_date: rate.effectiveDate }
+    : { nbp_rate: null, nbp_rate_date: null };
 }
 
 /* ---------------------------------------------------------------- podróże */
@@ -184,6 +203,110 @@ export async function setTripShareAction(
   return { success: enabled ? "Udostępnianie włączone" : "Udostępnianie wyłączone" };
 }
 
+/* ------------------------------------------------------- kategorie kosztów */
+
+const categoryName = z
+  .string()
+  .trim()
+  .min(1, "Podaj nazwę kategorii")
+  .max(30, "Nazwa kategorii może mieć najwyżej 30 znaków");
+
+/** Porównanie bez względu na wielkość liter — „Paliwo" i „paliwo" to jedno. */
+function sameCategory(a: string, b: string): boolean {
+  return a.localeCompare(b, "pl", { sensitivity: "accent" }) === 0;
+}
+
+export async function addExpenseCategoryAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireUser();
+
+  const parsed = categoryName.safeParse(formData.get("name"));
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+  if (user.expense_categories.some((c) => sameCategory(c, parsed.data))) {
+    return fail("Taka kategoria już jest na liście");
+  }
+  if (user.expense_categories.length >= 20) {
+    return fail("Więcej niż 20 kategorii robi się nieczytelne");
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { expense_categories: { push: parsed.data } },
+  });
+
+  refreshAll();
+  return { success: "Dodano kategorię" };
+}
+
+/**
+ * Usunięcie kategorii z listy. Istniejące koszty zostają nietknięte — kategoria
+ * jest w nich tekstem, nie kluczem obcym, więc dalej pokazują swoją nazwę
+ * i wchodzą do podsumowania.
+ */
+export async function removeExpenseCategoryAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireUser();
+
+  const parsed = categoryName.safeParse(formData.get("name"));
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+
+  const next = user.expense_categories.filter((c) => !sameCategory(c, parsed.data));
+  if (next.length === user.expense_categories.length) return fail("Nie znaleziono kategorii");
+  if (next.length === 0) return fail("Zostaw przynajmniej jedną kategorię");
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { expense_categories: next },
+  });
+
+  refreshAll();
+  return { success: "Usunięto kategorię" };
+}
+
+/**
+ * Zmiana nazwy przenosi też istniejące koszty — tego oczekuje ktoś, kto
+ * poprawia literówkę albo doprecyzowuje nazwę.
+ */
+export async function renameExpenseCategoryAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireUser();
+
+  const parsed = z
+    .object({ from: categoryName, to: categoryName })
+    .safeParse({ from: formData.get("from"), to: formData.get("to") });
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+
+  const { from, to } = parsed.data;
+  if (!user.expense_categories.some((c) => sameCategory(c, from))) {
+    return fail("Nie znaleziono kategorii");
+  }
+  if (user.expense_categories.some((c) => sameCategory(c, to) && !sameCategory(c, from))) {
+    return fail("Taka kategoria już jest na liście");
+  }
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: user.id },
+      data: {
+        expense_categories: user.expense_categories.map((c) => (sameCategory(c, from) ? to : c)),
+      },
+    }),
+    prisma.expense.updateMany({
+      where: { user_id: user.id, category: from },
+      data: { category: to },
+    }),
+  ]);
+
+  refreshAll();
+  return { success: "Zmieniono nazwę kategorii" };
+}
+
 /* ---------------------------------------------------------------- godziny */
 
 export async function createWorkEntryAction(
@@ -199,15 +322,11 @@ export async function createWorkEntryAction(
         work_date: dayString,
         start_time: timeString,
         end_time: timeString,
-        rate: z.number().nonnegative("Stawka nie może być ujemna"),
-        rate_currency: currency,
       })
       .safeParse({
         work_date: formData.get("work_date"),
         start_time: formData.get("start_time"),
         end_time: formData.get("end_time"),
-        rate: parseAmount(formData.get("rate")),
-        rate_currency: formData.get("rate_currency"),
       });
     if (!parsed.success) return fail(firstIssue(parsed.error));
 
@@ -237,16 +356,12 @@ export async function updateWorkEntryAction(
         work_date: dayString,
         start_time: timeString,
         end_time: timeString,
-        rate: z.number().nonnegative("Stawka nie może być ujemna"),
-        rate_currency: currency,
       })
       .safeParse({
         id: formData.get("id"),
         work_date: formData.get("work_date"),
         start_time: formData.get("start_time"),
         end_time: formData.get("end_time"),
-        rate: parseAmount(formData.get("rate")),
-        rate_currency: formData.get("rate_currency"),
       });
     if (!parsed.success) return fail(firstIssue(parsed.error));
 
@@ -302,7 +417,11 @@ export async function createExpenseAction(
         name: z.string().trim().min(1, "Podaj nazwę kosztu").max(200),
         amount: z.number("Podaj kwotę"),
         currency,
-        category,
+        // Kategoria musi pochodzić z listy tego konta — inaczej podrobiony
+        // formularz mógłby wstawić dowolny tekst.
+        category: z.enum(user.expense_categories as [string, ...string[]], {
+          message: "Nieznana kategoria kosztu",
+        }),
       })
       .safeParse({
         name: formData.get("name"),
@@ -312,7 +431,14 @@ export async function createExpenseAction(
       });
     if (!parsed.success) return fail(firstIssue(parsed.error));
 
-    await prisma.expense.create({ data: { user_id: user.id, trip_id: tripId, ...parsed.data } });
+    await prisma.expense.create({
+      data: {
+        user_id: user.id,
+        trip_id: tripId,
+        ...parsed.data,
+        ...(await freezeRate(parsed.data.currency)),
+      },
+    });
 
     refreshAll();
     return { success: "Dodano koszt" };
@@ -361,6 +487,7 @@ export async function createPayoutAction(
         trip_id: tripId,
         ...parsed.data,
         note: optionalText(formData.get("note")),
+        ...(await freezeRate(parsed.data.currency)),
       },
     });
 

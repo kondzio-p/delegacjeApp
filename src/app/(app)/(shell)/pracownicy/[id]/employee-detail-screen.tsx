@@ -3,33 +3,32 @@
 import {
   ArrowLeft,
   Clock,
-  Coins,
   FileDown,
   KeyRound,
   Pencil,
   Plane,
   Plus,
   Trash2,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { useRates } from "@/components/rates-provider";
 import { StatCard } from "@/components/trip-summary-view";
 import { useAction } from "@/components/use-action";
-import { useSettings } from "@/components/use-settings";
-import { CurrencyToggle, EmptyState, Field, FormMessage, Modal } from "@/components/ui";
+import { EmptyState, Field, FormMessage, Modal } from "@/components/ui";
 import { resetEmployeePasswordAction, type ResetPasswordState } from "@/lib/actions/company";
 import {
   createWorkEntryAction,
   deleteWorkEntryAction,
   updateWorkEntryAction,
 } from "@/lib/actions/data";
-import { convert, formatDate, formatHours, formatMoney, hoursBetween } from "@/lib/money";
-import type { Currency } from "@/lib/money";
+import { formatDate, formatDateTime, formatHours, formatMoney, hoursBetween, toDisplayAmount } from "@/lib/money";
 import { printDocument } from "@/lib/print";
 import { tripLabel } from "@/lib/trip-summary";
-import type { Trip, WorkEntry } from "@/lib/types";
+import type { Payout, Trip, WorkEntry } from "@/lib/types";
 
 const ALL_MONTHS = "all";
 
@@ -51,12 +50,13 @@ export function EmployeeDetailScreen({
   employee,
   entries,
   trips,
+  payouts,
 }: {
   employee: Employee;
   entries: WorkEntry[];
   trips: Trip[];
+  payouts: Payout[];
 }) {
-  const { display, rate } = useSettings();
   const [month, setMonth] = useState<string>(ALL_MONTHS);
   const [editing, setEditing] = useState<WorkEntry | null>(null);
   const [adding, setAdding] = useState(false);
@@ -72,21 +72,10 @@ export function EmployeeDetailScreen({
     [entries, month],
   );
 
-  const totals = useMemo(() => {
-    const hours = visible.reduce((s, e) => s + hoursBetween(e.start_time, e.end_time), 0);
-    const accrued = visible.reduce(
-      (s, e) =>
-        s +
-        convert(
-          hoursBetween(e.start_time, e.end_time) * Number(e.rate),
-          e.rate_currency,
-          display,
-          rate,
-        ),
-      0,
-    );
-    return { hours, accrued };
-  }, [visible, display, rate]);
+  const totalHours = useMemo(
+    () => visible.reduce((s, e) => s + hoursBetween(e.start_time, e.end_time), 0),
+    [visible],
+  );
 
   // Grupowanie po delegacjach; wpisy bez przypisania lądują na końcu.
   const groups = useMemo(() => {
@@ -134,7 +123,7 @@ export function EmployeeDetailScreen({
         <h1 className="text-xl font-bold">Godziny pracy — {employee.name}</h1>
         <p className="text-sm">
           {month === ALL_MONTHS ? "Wszystkie wpisy" : monthName(month)} · razem{" "}
-          {formatHours(totals.hours)}
+          {formatHours(totalHours)}
         </p>
       </div>
 
@@ -162,18 +151,15 @@ export function EmployeeDetailScreen({
         </select>
       </section>
 
-      <section className="mt-4 grid grid-cols-2 gap-3">
+      <section className="mt-4">
         <StatCard
           icon={<Clock className="h-5 w-5 text-primary" />}
           label={month === ALL_MONTHS ? "Godziny łącznie" : `Godziny — ${monthName(month)}`}
-          value={formatHours(totals.hours)}
-        />
-        <StatCard
-          icon={<Coins className="h-5 w-5 text-accent" />}
-          label="Przewidywany zarobek (godziny × stawka)"
-          value={formatMoney(totals.accrued, display)}
+          value={formatHours(totalHours)}
         />
       </section>
+
+      <PayoutsSection payouts={payouts} month={month} />
 
       <div className="no-print mt-4 flex flex-wrap gap-2">
         <button
@@ -209,8 +195,6 @@ export function EmployeeDetailScreen({
               subtitle="delegacja"
               entries={tripEntries}
               employeeId={employee.id}
-              display={display}
-              rate={rate}
               onEdit={setEditing}
             />
           ))}
@@ -220,8 +204,6 @@ export function EmployeeDetailScreen({
               title="Bez przypisania do delegacji"
               entries={groups.unassigned}
               employeeId={employee.id}
-              display={display}
-              rate={rate}
               onEdit={setEditing}
             />
           )}
@@ -254,30 +236,80 @@ export function EmployeeDetailScreen({
   );
 }
 
+/**
+ * Wypłaty pracownika. Właściciel je widzi, bo sam je wydał — inaczej niż koszty,
+ * które pracownik ponosi z własnej kieszeni i które zostają prywatne.
+ */
+function PayoutsSection({ payouts, month }: { payouts: Payout[]; month: string }) {
+  const rates = useRates();
+
+  const visible = useMemo(
+    () => (month === ALL_MONTHS ? payouts : payouts.filter((p) => p.paid_at.startsWith(month))),
+    [payouts, month],
+  );
+
+  const totalPln = useMemo(
+    () =>
+      visible.reduce(
+        (sum, p) => sum + toDisplayAmount(p.amount, p.currency, p.nbp_rate, "PLN", rates),
+        0,
+      ),
+    [visible, rates],
+  );
+
+  return (
+    <section className="mt-4 rounded-2xl bg-card p-4">
+      <div className="flex items-center gap-2">
+        <Wallet className="h-5 w-5 shrink-0 text-success" />
+        <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Wypłaty {month === ALL_MONTHS ? "łącznie" : `— ${monthName(month)}`}
+        </h2>
+      </div>
+
+      <p className="mt-3 break-words text-lg font-bold tabular-nums text-success">
+        {formatMoney(totalPln, "PLN")}
+      </p>
+
+      {visible.length === 0 ? (
+        <p className="mt-2 text-sm text-muted-foreground">Brak wypłat w tym okresie.</p>
+      ) : (
+        <ul className="mt-3 space-y-2">
+          {visible.map((payout) => (
+            <li
+              key={payout.id}
+              className="flex items-center justify-between gap-3 rounded-xl bg-secondary px-4 py-2"
+            >
+              <span className="min-w-0 flex-1 truncate text-sm">
+                {payout.note?.trim() || "Wypłata"}
+                <span className="block text-xs text-muted-foreground">
+                  {formatDateTime(payout.paid_at)}
+                </span>
+              </span>
+              <span className="shrink-0 text-sm font-semibold tabular-nums text-success">
+                {formatMoney(payout.amount, payout.currency)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function EntryGroup({
   title,
   subtitle,
   entries,
   employeeId,
-  display,
-  rate,
   onEdit,
 }: {
   title: string;
   subtitle?: string;
   entries: WorkEntry[];
   employeeId: string;
-  display: Currency;
-  rate: number;
   onEdit: (entry: WorkEntry) => void;
 }) {
   const hours = entries.reduce((s, e) => s + hoursBetween(e.start_time, e.end_time), 0);
-  const accrued = entries.reduce(
-    (s, e) =>
-      convert(hoursBetween(e.start_time, e.end_time) * Number(e.rate), e.rate_currency, display, rate) +
-      s,
-    0,
-  );
 
   return (
     <section className="mt-6">
@@ -292,9 +324,6 @@ function EntryGroup({
         </div>
         <p className="shrink-0 text-right text-sm font-semibold tabular-nums">
           {formatHours(hours)}
-          <span className="block text-xs font-normal text-muted-foreground">
-            {formatMoney(accrued, display)}
-          </span>
         </p>
       </div>
 
@@ -311,10 +340,7 @@ function EntryGroup({
                   {formatDate(entry.work_date)} · {entry.start_time}–{entry.end_time}
                 </p>
                 <p className="truncate text-sm text-muted-foreground">
-                  {formatHours(entryHours)} ·{" "}
-                  <span className="text-success">
-                    {formatMoney(entryHours * Number(entry.rate), entry.rate_currency)}
-                  </span>
+                  {formatHours(entryHours)}
                 </p>
               </div>
               <button
@@ -368,7 +394,6 @@ function EntryFormModal({
 }) {
   const action = entry ? updateWorkEntryAction : createWorkEntryAction;
   const [state, formAction, pending] = useAction(action, { onSuccess: onClose });
-  const [currency, setCurrency] = useState<Currency>(entry?.rate_currency ?? "EUR");
 
   return (
     <Modal title={title} onClose={onClose}>
@@ -421,19 +446,6 @@ function EntryFormModal({
             />
           </Field>
         </div>
-
-        <Field label="Stawka godzinowa">
-          <input
-            name="rate"
-            inputMode="decimal"
-            required
-            defaultValue={entry ? String(entry.rate) : ""}
-            placeholder="15"
-            className="input-field"
-          />
-        </Field>
-
-        <CurrencyToggle name="rate_currency" value={currency} onChange={setCurrency} />
 
         <FormMessage error={state.error} />
 

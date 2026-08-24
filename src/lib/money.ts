@@ -1,10 +1,36 @@
+import type { CurrentRates } from "./rates";
+
 export type Currency = "EUR" | "PLN";
 
-/** Przelicza kwotę na walutę wyświetlania. `rate` = ile PLN za 1 EUR. */
-export function convert(amount: number, from: Currency, to: Currency, rate: number): number {
-  if (from === to) return amount;
-  if (!rate || rate <= 0) return amount;
-  return from === "EUR" ? amount * rate : amount / rate;
+/**
+ * Kwota w walucie wyświetlania.
+ *
+ * Kurs zamrożony przy wpisie (`nbpRate`) mówi, ile złotówek ta kwota była warta
+ * w dniu operacji — dzięki temu suma za marzec wygląda tak samo w czerwcu.
+ * Przeliczamy zawsze przez PLN, bo tabela NBP podaje kursy właśnie do złotówki.
+ *
+ * Gdy zamrożonego kursu brak (wpis sprzed zmiany albo NBP nie odpowiedziało
+ * przy zapisie), sięgamy po kurs bieżący. Gdy i tego nie ma — oddajemy kwotę
+ * bez przeliczenia, bo lepsza liczba w oryginalnej walucie niż zero.
+ */
+export function toDisplayAmount(
+  amount: number,
+  currency: Currency,
+  nbpRate: number | null,
+  display: Currency,
+  current: CurrentRates | null,
+): number {
+  if (currency === display) return amount;
+
+  const fromRate = currency === "PLN" ? 1 : (nbpRate ?? current?.rates[currency] ?? null);
+  if (fromRate === null || fromRate <= 0) return amount;
+
+  const inPln = amount * fromRate;
+  if (display === "PLN") return inPln;
+
+  const toRate = current?.rates[display] ?? null;
+  if (toRate === null || toRate <= 0) return amount;
+  return inPln / toRate;
 }
 
 export function formatMoney(amount: number, currency: Currency): string {

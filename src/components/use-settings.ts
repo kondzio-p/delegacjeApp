@@ -6,14 +6,13 @@ import type { Currency } from "@/lib/money";
 import {
   getServerSettingsSnapshot,
   getSettingsSnapshot,
-  parseRate,
   subscribeToSettings,
   updateSettings,
 } from "@/lib/settings-store";
 
 /**
- * Waluta wyświetlania i kurs EUR/PLN — wspólne dla wszystkich ekranów,
- * trzymane poza Reactem (localStorage), więc bez providera.
+ * Waluta wyświetlania — wspólna dla wszystkich ekranów, trzymana poza Reactem
+ * (localStorage), więc bez providera. Kursy przychodzą osobno, z NBP.
  */
 export function useSettings() {
   const settings = useSyncExternalStore(
@@ -24,9 +23,6 @@ export function useSettings() {
 
   return {
     display: settings.display,
-    rateInput: settings.rateInput,
-    rate: parseRate(settings.rateInput),
     setDisplay: (display: Currency) => updateSettings({ display }),
-    setRateInput: (rateInput: string) => updateSettings({ rateInput }),
   };
 }

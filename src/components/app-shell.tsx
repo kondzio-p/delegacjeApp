@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  ArrowRightLeft,
+  Building2,
   Clock,
   LayoutDashboard,
   LogOut,
@@ -26,10 +28,12 @@ const BASE_NAV = [
   { href: "/podroze", labelKey: "nav.trips", icon: Plane },
   { href: "/godziny", labelKey: "nav.hours", icon: Clock },
   { href: "/finanse", labelKey: "nav.finance", icon: Wallet },
+  { href: "/kursy", labelKey: "nav.rates", icon: ArrowRightLeft },
 ] as const satisfies readonly { href: string; labelKey: TranslationKey; icon: unknown }[];
 
 const SETTINGS_NAV = { href: "/ustawienia", labelKey: "nav.settings", icon: Settings } as const;
 const EMPLOYEES_NAV = { href: "/pracownicy", labelKey: "nav.employees", icon: Users } as const;
+const COMPANY_NAV = { href: "/firma", labelKey: "nav.company", icon: Building2 } as const;
 
 /**
  * Tytuł w nagłówku bierze się ze ścieżki, a nie z propsa strony — dzięki temu
@@ -41,6 +45,8 @@ function titleKeyFor(pathname: string): TranslationKey {
   if (pathname === "/podroze") return "nav.trips";
   if (pathname.startsWith("/godziny")) return "nav.hours";
   if (pathname.startsWith("/finanse")) return "nav.finance";
+  if (pathname.startsWith("/kursy")) return "nav.rates";
+  if (pathname.startsWith("/firma")) return "nav.company";
   if (pathname.startsWith("/pracownicy/")) return "title.employee";
   if (pathname === "/pracownicy") return "nav.employees";
   if (pathname.startsWith("/ustawienia")) return "nav.settings";
@@ -54,7 +60,11 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
   const t = useT();
 
   // Pozycja Pracownicy pojawia się dopiero po włączeniu trybu właściciela.
-  const nav = [...BASE_NAV, ...(user.is_owner ? [EMPLOYEES_NAV] : []), SETTINGS_NAV];
+  const nav = [
+    ...BASE_NAV,
+    ...(user.is_owner ? [COMPANY_NAV, EMPLOYEES_NAV] : []),
+    SETTINGS_NAV,
+  ];
 
   // Menu jest wysunięte poza ekran, więc automatyczny prefetch <Link> (oparty na
   // widoczności) nigdy się nie odpala. Grzejemy trasy ręcznie, gdy tylko szuflada

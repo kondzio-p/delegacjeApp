@@ -11,14 +11,13 @@ export type Trip = {
   share_enabled: boolean;
 };
 
+/** Sam czas pracy — kwoty są wyłącznie w Expense i Payout. */
 export type WorkEntry = {
   id: string;
   trip_id: string | null;
   work_date: string;
   start_time: string;
   end_time: string;
-  rate: number;
-  rate_currency: Currency;
 };
 
 export type Expense = {
@@ -29,6 +28,8 @@ export type Expense = {
   currency: Currency;
   category: string;
   spent_at: string;
+  /** Kurs NBP z dnia wpisu; null = brak, odczyt sięgnie po kurs bieżący. */
+  nbp_rate: number | null;
 };
 
 export type Payout = {
@@ -38,6 +39,8 @@ export type Payout = {
   currency: Currency;
   note: string | null;
   paid_at: string;
+  /** Kurs NBP z dnia wpisu; null = brak, odczyt sięgnie po kurs bieżący. */
+  nbp_rate: number | null;
 };
 
 export type SessionUser = {
@@ -48,6 +51,9 @@ export type SessionUser = {
   is_owner: boolean;
   company_id: string | null;
   must_change_password: boolean;
+  /** Własne kategorie kosztów tego konta. */
+  expense_categories: string[];
+  is_deleted: boolean;
 };
 
 /** Wynik akcji formularza — wspólny kształt dla useActionState. */

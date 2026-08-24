@@ -38,6 +38,8 @@ export const SESSION_USER_SELECT = {
   is_owner: true,
   company_id: true,
   must_change_password: true,
+  expense_categories: true,
+  is_deleted: true,
 } as const;
 
 /* --------------------------------------------------------------- hasła */
@@ -141,6 +143,12 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
   if (session.expires_at.getTime() <= Date.now()) {
     await prisma.session.deleteMany({ where: { token_hash: tokenHash } });
+    return null;
+  }
+
+  // Konto zanonimizowane — żywa sesja nie może go wskrzesić.
+  if (session.user.is_deleted) {
+    await prisma.session.deleteMany({ where: { user_id: session.user.id } });
     return null;
   }
 

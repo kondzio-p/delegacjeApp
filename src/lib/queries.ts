@@ -6,7 +6,8 @@
 import "server-only";
 
 import { prisma } from "./db";
-import { hoursBetween } from "./money";
+import { hoursBetween, type Currency } from "./money";
+import type { CurrentRates } from "./rates";
 import type { Expense, Payout, Trip, WorkEntry } from "./types";
 
 /** Prisma zwraca NUMERIC jako Decimal; aplikacja liczy na zwykłych number. */
@@ -29,8 +30,6 @@ const workEntrySelect = {
   work_date: true,
   start_time: true,
   end_time: true,
-  rate: true,
-  rate_currency: true,
 } as const;
 
 const expenseSelect = {
@@ -41,6 +40,7 @@ const expenseSelect = {
   currency: true,
   category: true,
   spent_at: true,
+  nbp_rate: true,
 } as const;
 
 const payoutSelect = {
@@ -50,6 +50,7 @@ const payoutSelect = {
   currency: true,
   note: true,
   paid_at: true,
+  nbp_rate: true,
 } as const;
 
 type TripRow = {
@@ -67,8 +68,6 @@ type WorkEntryRow = {
   work_date: string;
   start_time: string;
   end_time: string;
-  rate: { toString: () => string };
-  rate_currency: string;
 };
 
 type ExpenseRow = {
@@ -79,6 +78,7 @@ type ExpenseRow = {
   currency: string;
   category: string;
   spent_at: Date;
+  nbp_rate: { toString: () => string } | null;
 };
 
 type PayoutRow = {
@@ -88,6 +88,7 @@ type PayoutRow = {
   currency: string;
   note: string | null;
   paid_at: Date;
+  nbp_rate: { toString: () => string } | null;
 };
 
 function mapTrip(row: TripRow): Trip {
@@ -98,12 +99,9 @@ function mapTrip(row: TripRow): Trip {
   };
 }
 
+// Wiersz godzin nie ma już nic do przemapowania — same stringi.
 function mapWorkEntry(row: WorkEntryRow): WorkEntry {
-  return {
-    ...row,
-    rate: toNumber(row.rate),
-    rate_currency: row.rate_currency as WorkEntry["rate_currency"],
-  };
+  return { ...row };
 }
 
 function mapExpense(row: ExpenseRow): Expense {
@@ -112,6 +110,7 @@ function mapExpense(row: ExpenseRow): Expense {
     amount: toNumber(row.amount),
     currency: row.currency as Expense["currency"],
     spent_at: row.spent_at.toISOString(),
+    nbp_rate: row.nbp_rate === null ? null : toNumber(row.nbp_rate),
   };
 }
 
@@ -121,6 +120,7 @@ function mapPayout(row: PayoutRow): Payout {
     amount: toNumber(row.amount),
     currency: row.currency as Payout["currency"],
     paid_at: row.paid_at.toISOString(),
+    nbp_rate: row.nbp_rate === null ? null : toNumber(row.nbp_rate),
   };
 }
 
@@ -223,12 +223,135 @@ export function monthKeyOf(date: Date = new Date()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+/**
+ * Granice miesiąca jako teksty `YYYY-MM-DD`. `work_date` jest kolumną tekstową
+ * w tym samym formacie, więc porównanie leksykograficzne działa jak datowe
+ * i filtr wykonuje się w bazie, a nie po stronie aplikacji.
+ */
+export function monthRange(monthKey: string): { from: string; to: string } {
+  const [year, month] = monthKey.split("-").map(Number);
+  const y = year ?? 1970;
+  const m = month ?? 1;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const nextY = m === 12 ? y + 1 : y;
+  const nextM = m === 12 ? 1 : m + 1;
+  return { from: `${y}-${pad(m)}-01`, to: `${nextY}-${pad(nextM)}-01` };
+}
+
 export function monthLabel(monthKey: string): string {
   const [year, month] = monthKey.split("-").map(Number);
   return new Date(year ?? 1970, (month ?? 1) - 1, 1).toLocaleDateString("pl-PL", {
     month: "long",
     year: "numeric",
   });
+}
+
+/* ------------------------------------------------------ raport dla firmy */
+
+export type PayrollRow = {
+  id: string;
+  name: string;
+  /** Przepracowane godziny w zakresie. */
+  hours: number;
+  /** Wypłacono w zakresie, przeliczone na PLN po kursach z dni wypłat. */
+  paidPln: number;
+  isDeleted: boolean;
+};
+
+/**
+ * Zestawienie firmy za zakres dat: ile kto przepracował i ile dostał.
+ *
+ * Kwoty liczymy w PLN po kursach **zamrożonych przy wypłatach**, więc raport
+ * za marzec wygląda tak samo niezależnie od tego, kiedy się go wygeneruje.
+ * Gdy wypłata nie ma zapisanego kursu (wpis sprzed zmiany), używamy `fallback`
+ * — bieżącej tabeli NBP.
+ *
+ * Zakres dat jest domknięty od lewej i otwarty od prawej: [from, to).
+ */
+export async function getCompanyPayrollReport(
+  companyId: string,
+  from: string,
+  to: string,
+  fallback: CurrentRates | null,
+): Promise<PayrollRow[]> {
+  const employees = await prisma.user.findMany({
+    where: { company_id: companyId },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, is_deleted: true },
+  });
+  if (employees.length === 0) return [];
+
+  const ids = employees.map((e) => e.id);
+  const toDate = new Date(`${to}T00:00:00.000Z`);
+
+  const [entries, payouts] = await Promise.all([
+    prisma.workEntry.findMany({
+      where: { user_id: { in: ids }, work_date: { gte: from, lt: to } },
+      select: { user_id: true, start_time: true, end_time: true },
+    }),
+    prisma.payout.findMany({
+      where: {
+        user_id: { in: ids },
+        paid_at: { gte: new Date(`${from}T00:00:00.000Z`), lt: toDate },
+      },
+      select: { user_id: true, amount: true, currency: true, nbp_rate: true },
+    }),
+  ]);
+
+  const hoursBy = new Map<string, number>();
+  for (const entry of entries) {
+    hoursBy.set(
+      entry.user_id,
+      (hoursBy.get(entry.user_id) ?? 0) + hoursBetween(entry.start_time, entry.end_time),
+    );
+  }
+
+  const paidBy = new Map<string, number>();
+  for (const payout of payouts) {
+    const currency = payout.currency as Currency;
+    const amount = toNumber(payout.amount);
+    const rate =
+      currency === "PLN"
+        ? 1
+        : (payout.nbp_rate === null ? null : toNumber(payout.nbp_rate)) ??
+          fallback?.rates[currency] ??
+          null;
+    // Bez żadnego kursu nie zgadujemy — kwota nie wchodzi do sumy w PLN.
+    if (rate === null) continue;
+    paidBy.set(payout.user_id, (paidBy.get(payout.user_id) ?? 0) + amount * rate);
+  }
+
+  return employees.map((employee) => ({
+    id: employee.id,
+    name: employee.name,
+    hours: hoursBy.get(employee.id) ?? 0,
+    paidPln: paidBy.get(employee.id) ?? 0,
+    isDeleted: employee.is_deleted,
+  }));
+}
+
+/**
+ * Wypłaty pracownika widoczne dla właściciela.
+ *
+ * Właściciel widzi wypłaty, bo sam je wydał. **Kosztów pracownika nie widzi** —
+ * to jego prywatne wydatki i nie ma dla nich odpowiednika tej funkcji.
+ */
+export async function getEmployeePayouts(
+  companyId: string,
+  employeeId: string,
+): Promise<Payout[]> {
+  const employee = await prisma.user.findFirst({
+    where: { id: employeeId, company_id: companyId },
+    select: { id: true },
+  });
+  if (!employee) return [];
+
+  const rows = await prisma.payout.findMany({
+    where: { user_id: employee.id },
+    orderBy: { paid_at: "desc" },
+    select: payoutSelect,
+  });
+  return rows.map(mapPayout);
 }
 
 /* ------------------------------------------------------------ pracownicy */
@@ -249,7 +372,20 @@ export type JoinRequestRow = {
   created_at: string;
 };
 
-export async function getCompanyEmployees(companyId: string): Promise<EmployeeCard[]> {
+/**
+ * Karty pracowników z godzinami za wskazany miesiąc.
+ *
+ * Godziny filtrujemy w zapytaniu, a nie po pobraniu wszystkiego — pracownik
+ * z rocznym stażem ma setki wpisów, a na tym ekranie interesuje nas jeden
+ * miesiąc. Ostatni wpis (niezależny od miesiąca) dociągamy osobno, bo jedna
+ * relacja nie może być w jednym `select` użyta dwa razy z różnymi filtrami.
+ */
+export async function getCompanyEmployees(
+  companyId: string,
+  monthKey: string = monthKeyOf(),
+): Promise<EmployeeCard[]> {
+  const { from, to } = monthRange(monthKey);
+
   const employees = await prisma.user.findMany({
     where: { company_id: companyId },
     orderBy: { name: "asc" },
@@ -258,24 +394,36 @@ export async function getCompanyEmployees(companyId: string): Promise<EmployeeCa
       email: true,
       name: true,
       work_entries: {
-        orderBy: [{ work_date: "desc" }, { start_time: "desc" }],
-        select: { work_date: true, start_time: true, end_time: true },
+        where: { work_date: { gte: from, lt: to } },
+        select: { start_time: true, end_time: true },
       },
       trips: { where: { return_at: null }, select: { id: true }, take: 1 },
     },
   });
 
-  const month = monthKeyOf();
+  if (employees.length === 0) return [];
+
+  // DISTINCT ON user_id przy sortowaniu malejąco = najnowszy wpis każdej osoby.
+  const latest = await prisma.workEntry.findMany({
+    where: { user_id: { in: employees.map((e) => e.id) } },
+    orderBy: [{ work_date: "desc" }, { start_time: "desc" }],
+    distinct: ["user_id"],
+    select: { user_id: true, work_date: true, start_time: true, end_time: true },
+  });
+  const lastByUser = new Map(
+    latest.map(({ user_id, ...entry }) => [user_id, entry] as const),
+  );
 
   return employees.map((employee) => ({
     id: employee.id,
     email: employee.email,
     name: employee.name,
-    monthHours: employee.work_entries
-      .filter((entry) => entry.work_date.startsWith(month))
-      .reduce((sum, entry) => sum + hoursBetween(entry.start_time, entry.end_time), 0),
+    monthHours: employee.work_entries.reduce(
+      (sum, entry) => sum + hoursBetween(entry.start_time, entry.end_time),
+      0,
+    ),
     onTrip: employee.trips.length > 0,
-    lastEntry: employee.work_entries[0] ?? null,
+    lastEntry: lastByUser.get(employee.id) ?? null,
   }));
 }
 
@@ -316,9 +464,31 @@ export async function getCompanyStatus(user: {
     }),
   ]);
 
+  // Współwłasność i zaproszenia: kto jest w mojej firmie i czy ktoś mnie zaprosił.
+  const [coOwners, invite, myCoOwnership] = await Promise.all([
+    ownCompany
+      ? prisma.companyCoOwner.findMany({
+          where: { company: { owner_id: user.id } },
+          orderBy: { created_at: "asc" },
+          select: { user: { select: { id: true, name: true, email: true } } },
+        })
+      : [],
+    prisma.coOwnerInvite.findFirst({
+      where: { user_id: user.id },
+      select: { company: { select: { name: true } } },
+    }),
+    prisma.companyCoOwner.findFirst({
+      where: { user_id: user.id },
+      select: { company: { select: { name: true } } },
+    }),
+  ]);
+
   return {
     employerName: employer?.name ?? null,
     ownCompanyName: ownCompany?.name ?? null,
     pendingCompanyName: request?.company.name ?? null,
+    coOwners: coOwners.map((row) => row.user),
+    inviteCompanyName: invite?.company.name ?? null,
+    coOwnedCompanyName: myCoOwnership?.company.name ?? null,
   };
 }

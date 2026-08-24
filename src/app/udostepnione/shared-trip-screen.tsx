@@ -13,16 +13,17 @@ import { formatDateTime, type Currency } from "@/lib/money";
 import { isoDay, printDocument } from "@/lib/print";
 import { summarizeTrip } from "@/lib/trip-summary";
 import type { SharedTripPayload } from "@/lib/queries";
+import type { CurrentRates } from "@/lib/rates";
 
-export function SharedTripScreen({ payload }: { payload: SharedTripPayload }) {
+export function SharedTripScreen({
+  payload,
+  rates,
+}: {
+  payload: SharedTripPayload;
+  rates: CurrentRates | null;
+}) {
   const [display, setDisplay] = useState<Currency>("PLN");
-  const [rateInput, setRateInput] = useState("4.35");
   const [now] = useState(() => Date.now());
-
-  const rate = useMemo(() => {
-    const parsed = Number.parseFloat(rateInput.replace(",", "."));
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 4.35;
-  }, [rateInput]);
 
   const summary = useMemo(
     () =>
@@ -34,10 +35,10 @@ export function SharedTripScreen({ payload }: { payload: SharedTripPayload }) {
         expenses: payload.expenses,
         payouts: payload.payouts,
         display,
-        rate,
+        rates,
         now,
       }),
-    [payload, display, rate, now],
+    [payload, display, rates, now],
   );
 
   return (
@@ -58,20 +59,11 @@ export function SharedTripScreen({ payload }: { payload: SharedTripPayload }) {
             </button>
           ))}
         </div>
-        <label
-          className="mt-4 block text-sm font-medium text-muted-foreground"
-          htmlFor="shared-rate"
-        >
-          Kurs EUR (ile PLN za 1 EUR)
-        </label>
-        <input
-          id="shared-rate"
-          inputMode="decimal"
-          value={rateInput}
-          onChange={(e) => setRateInput(e.target.value)}
-          className="input-field mt-2 text-lg font-semibold"
-          placeholder="4.35"
-        />
+        {rates && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Kurs NBP {rates.rates.EUR.toFixed(4)} PLN za 1 EUR (tabela z {rates.effectiveDate}).
+          </p>
+        )}
       </section>
 
       <div className="print-only mb-4">

@@ -77,7 +77,8 @@ Od tej chwili widzi kartę pracownika (imię, e-mail, godziny w tym miesiącu,
 status delegacji, ostatni wpis), a po wejściu w kartę — pełne zestawienie godzin z filtrem miesiąca,
 podziałem na delegacje, edycją wpisów, eksportem PDF i resetem hasła.
 
-Właściciel **nie widzi** kosztów ani wypłat pracownika.
+Właściciel widzi godziny pracy i **wypłaty** pracownika — te ostatnie sam wypłacił.
+**Nie widzi** kosztów, które pracownik ponosi z własnej kieszeni.
 
 ### 6. Wrzucenie na Vercela
 
@@ -98,8 +99,24 @@ Następnie na [vercel.com](https://vercel.com):
    (zaznacz Production, Preview i Development).
 4. **Deploy**.
 
-Migracje odpalasz z własnego komputera (`npm run db:deploy`) — łączą się z tą samą
-bazą, więc wystarczy raz po każdej zmianie schematu.
+Migracje odpalasz z własnego komputera — łączą się z tą samą bazą, więc wystarczy
+raz po każdej zmianie schematu.
+
+**Uwaga do migracji.** Instancja Prisma Postgres na darmowym planie usypia, a jej
+wybudzenie potrafi zająć od kilkunastu sekund do kilku minut. Silnik migracji Prismy
+ma własny, krótki limit połączenia i zwykle kończy się wtedy błędem `P1001`, mimo że
+sama baza działa (zwykły klient `pg` łączy się bez problemu, tylko po kilku próbach).
+
+Gdy `npm run db:deploy` uparcie zwraca `P1001`, użyj:
+
+```bash
+node --env-file=.env ./apply-migration-pg.mjs
+```
+
+Skrypt dobija się do bazy z ponawianiem, wykonuje ten sam SQL i sam dopisuje wpis do
+`_prisma_migrations`. Zanim cokolwiek ruszy, sprawdza algorytm sumy kontrolnej na już
+zastosowanych migracjach i przerywa przy niezgodności, więc historia Prismy zostaje
+spójna. Jest idempotentny — zastosowane migracje pomija.
 
 ---
 
@@ -111,7 +128,8 @@ bazą, więc wystarczy raz po każdej zmianie schematu.
 | `npm run build` | build produkcyjny (generuje też klienta Prisma) |
 | `npm start` | uruchomienie zbudowanej aplikacji |
 | `npm run db:migrate` | nowa migracja po zmianie `prisma/schema.prisma` |
-| `npm run db:deploy` | zastosowanie istniejących migracji na bazie |
+| `npm run db:deploy` | zastosowanie migracji — patrz uwaga niżej |
+| `node --env-file=.env ./apply-migration-pg.mjs` | zastosowanie migracji, gdy `db:deploy` nie daje rady |
 | `npm run db:studio` | podgląd danych w przeglądarce |
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
 
@@ -127,7 +145,7 @@ src/lib/session.ts         bramki dostępu: requireUser / requireOwner / findMyE
 src/lib/db.ts              klient Prisma (adapter node-postgres)
 src/lib/queries.ts         odczyty dla server components
 src/lib/actions/           zapisy: auth.ts, company.ts, data.ts
-src/lib/trip-summary.ts    liczenie podsumowań i porównania zarobków
+src/lib/trip-summary.ts    liczenie podsumowań i realnych stawek godzinowych
 src/app/(app)/             ekrany po zalogowaniu
 src/app/udostepnione/      publiczny podgląd delegacji spod linku
 ```

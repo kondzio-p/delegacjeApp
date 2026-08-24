@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { useRates } from "@/components/rates-provider";
 import { useSettings } from "@/components/use-settings";
 import {
   CategoryBreakdown,
@@ -31,7 +32,8 @@ export function TripDetailScreen({
   expenses: Expense[];
   payouts: Payout[];
 }) {
-  const { display, rate } = useSettings();
+  const { display } = useSettings();
+  const rates = useRates();
   const [now] = useState(() => Date.now());
   const [shareOpen, setShareOpen] = useState(false);
 
@@ -45,10 +47,10 @@ export function TripDetailScreen({
         expenses,
         payouts,
         display,
-        rate,
+        rates,
         now,
       }),
-    [trip, workEntries, expenses, payouts, display, rate, now],
+    [trip, workEntries, expenses, payouts, display, rates, now],
   );
 
   return (
