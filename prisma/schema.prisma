@@ -31,6 +31,12 @@ model User {
   /// Własne kategorie kosztów. Zwykła lista tekstów, bo nie mają żadnych
   /// własnych atrybutów — osobna tabela byłaby tu przerostem formy.
   expense_categories   String[] @default(["Paliwo", "Jedzenie", "Zakwaterowanie", "Inne"])
+  /// Waluta, w której użytkownik chce widzieć kwoty. Preferencja konta, nie
+  /// urządzenia — ma przetrwać wyczyszczenie przeglądarki i wejście z telefonu.
+  display_currency     String   @default("PLN") @db.VarChar(3)
+  /// Język interfejsu. Ciasteczko jest tylko szybkim nośnikiem dla pierwszego
+  /// renderu; źródłem prawdy jest ta kolumna.
+  locale               String   @default("pl") @db.VarChar(5)
   /// Konto zanonimizowane na żądanie użytkownika. Dane osobowe zniknęły,
   /// godziny i wypłaty zostały, bo to zapis rozliczenia z firmą.
   is_deleted           Boolean  @default(false)

@@ -1,6 +1,7 @@
-// Wybór języka interfejsu. To ustawienie urządzenia, nie konta — trzyma się
-// w ciasteczku (nie httpOnly), żeby serwer wyrenderował od razu właściwy język
-// i nie było mignięcia polskim tekstem przed hydracją.
+// Wybór języka interfejsu. Preferencja konta — źródłem prawdy jest kolumna
+// `users.locale`. Ciasteczko (nie httpOnly) jest tylko nośnikiem: pozwala
+// wyrenderować właściwy język już przy pierwszym żądaniu, także na ekranie
+// logowania, gdzie sesji jeszcze nie ma.
 
 export const LOCALES = ["pl", "de", "uk", "en"] as const;
 
@@ -8,9 +9,7 @@ export type Locale = (typeof LOCALES)[number];
 
 export const DEFAULT_LOCALE: Locale = "pl";
 
-// Nazwa została z czasów, gdy aplikacja nazywała się Delegacje. Zmiana
-// tego klucza cofnęłaby wszystkim wybrany język, więc zostaje jak jest.
-export const LOCALE_COOKIE = "delegacje_locale";
+export const LOCALE_COOKIE = "godzio_locale";
 
 /** Rok — język wybiera się raz i ma zostać. */
 export const LOCALE_COOKIE_MAX_AGE = 365 * 24 * 60 * 60;

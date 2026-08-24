@@ -15,6 +15,7 @@ import {
   verifySecret,
 } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { rememberLocale } from "@/lib/i18n/locale.server";
 import { WELCOME_PATH } from "@/lib/routes";
 import { requireUser } from "@/lib/session";
 import type { ActionState } from "@/lib/types";
@@ -88,7 +89,7 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
 
   const user = await prisma.user.findUnique({
     where: { email: normalizeEmail(parsed.data.email) },
-    select: { id: true, password_hash: true, is_deleted: true },
+    select: { id: true, password_hash: true, is_deleted: true, locale: true },
   });
 
   // Ten sam komunikat dla nieznanego adresu, złego hasła i konta usuniętego —
@@ -98,6 +99,10 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   if (!(await verifySecret(parsed.data.password, user.password_hash))) return invalid;
 
   await startSession(user.id);
+  // Ciasteczko języka jest nośnikiem dla ekranów bez sesji. Po zalogowaniu
+  // z nowego urządzenia trzeba je uzupełnić z konta, inaczej po wylogowaniu
+  // formularz wróciłby do polskiego mimo innego wyboru użytkownika.
+  await rememberLocale(user.locale);
   redirect(WELCOME_PATH);
 }
 

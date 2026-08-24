@@ -2,6 +2,14 @@ import type { CurrentRates } from "./rates";
 
 export type Currency = "EUR" | "PLN";
 
+/** Waluty, w których da się zapisać kwotę i wybrać wyświetlanie. */
+export const CURRENCIES = ["PLN", "EUR"] as const satisfies readonly Currency[];
+
+/** Strażnik dla wartości z formularza albo z bazy — obie bywają tekstem. */
+export function isCurrency(value: unknown): value is Currency {
+  return value === "PLN" || value === "EUR";
+}
+
 /**
  * Kwota w walucie wyświetlania.
  *

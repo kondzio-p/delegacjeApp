@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import { RatesProvider } from "@/components/rates-provider";
+import { SettingsProvider } from "@/components/use-settings";
 import { getCurrentRates } from "@/lib/nbp";
 import { requireUser } from "@/lib/session";
 
@@ -18,7 +19,9 @@ export default async function ShellLayout({ children }: { children: React.ReactN
 
   return (
     <RatesProvider rates={rates}>
-      <AppShell user={user}>{children}</AppShell>
+      <SettingsProvider initialDisplay={user.display_currency}>
+        <AppShell user={user}>{children}</AppShell>
+      </SettingsProvider>
     </RatesProvider>
   );
 }

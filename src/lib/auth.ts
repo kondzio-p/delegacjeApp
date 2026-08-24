@@ -23,9 +23,7 @@ const scryptAsync = promisify(scrypt) as (
 ) => Promise<Buffer>;
 
 const KEY_LENGTH = 64;
-// Nazwa została z czasów, gdy aplikacja nazywała się Delegacje. Zmiana
-// tego klucza wylogowałaby wszystkich, więc zostaje jak jest.
-const SESSION_COOKIE = "delegacje_session";
+const SESSION_COOKIE = "godzio_session";
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 /** Bez 0/O/1/I/L — kod przepisuje się z kartki, więc mylące znaki odpadają. */
@@ -41,6 +39,8 @@ export const SESSION_USER_SELECT = {
   company_id: true,
   must_change_password: true,
   expense_categories: true,
+  display_currency: true,
+  locale: true,
   is_deleted: true,
 } as const;
 

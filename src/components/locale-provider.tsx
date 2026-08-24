@@ -1,13 +1,9 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, useTransition, type ReactNode } from "react";
 
-import {
-  LOCALE_COOKIE,
-  LOCALE_COOKIE_MAX_AGE,
-  DEFAULT_LOCALE,
-  type Locale,
-} from "@/lib/i18n/config";
+import { setLocaleAction } from "@/lib/actions/preferences";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 import { translate, type TranslationKey } from "@/lib/i18n/dictionaries";
 
 export type Translate = (key: TranslationKey, vars?: Record<string, string | number>) => string;
@@ -21,9 +17,12 @@ type LocaleContextValue = {
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
 /**
- * Język trzymamy w stanie Reacta i w ciasteczku. Stan sprawia, że przełączenie
- * jest natychmiastowe (cały tłumaczony UI to komponenty klienckie), ciasteczko —
- * że serwer przy następnym wejściu wyrenderuje od razu właściwy język.
+ * Język żyje w trzech miejscach naraz i każde ma inne zadanie: stan Reacta daje
+ * natychmiastowe przełączenie (cały tłumaczony interfejs to komponenty klienckie),
+ * kolumna w bazie przenosi wybór na inne urządzenie, a ciasteczko pozwala
+ * serwerowi wyrenderować właściwy język zanim pozna sesję.
+ *
+ * Zapis idzie przez akcję serwerową, ale interfejs na nią nie czeka.
  */
 export function LocaleProvider({
   initialLocale,
@@ -33,13 +32,14 @@ export function LocaleProvider({
   children: ReactNode;
 }) {
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
+  const [, startSaving] = useTransition();
 
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);
     document.documentElement.lang = next;
-    // Bez httpOnly — to preferencja wyglądu, nie sekret, a zapis z klienta
-    // oszczędza rundę do serwera przy każdej zmianie języka.
-    document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=${LOCALE_COOKIE_MAX_AGE}; samesite=lax`;
+    startSaving(async () => {
+      await setLocaleAction(next);
+    });
   }, []);
 
   const value = useMemo<LocaleContextValue>(

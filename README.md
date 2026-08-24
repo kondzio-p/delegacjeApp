@@ -193,5 +193,10 @@ Po pierwszym zalogowaniu wejdź w **Ustawienia → Konto** i wpisz prawdziwy adr
 - Nazwa firmy jest unikalna w całej aplikacji (bez rozróżniania wielkości liter).
 - Wyłączenie trybu właściciela kasuje firmę i odpina od niej pracowników.
   Ich konta, godziny i finanse zostają nietknięte.
-- Kurs EUR/PLN i wybrana waluta są zapisane w przeglądarce, nie w bazie —
-  każde urządzenie ma własne ustawienie.
+- Waluta wyświetlania i język są zapisane na koncie, nie w przeglądarce —
+  idą za użytkownikiem na każde urządzenie i przeżywają wyczyszczenie danych.
+  Ciasteczko języka jest wyłącznie nośnikiem dla pierwszego renderu i dla
+  ekranu logowania, gdzie sesji jeszcze nie ma.
+- Kursu nikt nie ustawia ręcznie: pochodzi z NBP i jest zamrażany przy każdym
+  koszcie i każdej wypłacie, więc podsumowanie za miniony miesiąc nie zmienia
+  się wraz z kursem dnia.

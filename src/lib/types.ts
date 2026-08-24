@@ -53,6 +53,10 @@ export type SessionUser = {
   must_change_password: boolean;
   /** Własne kategorie kosztów tego konta. */
   expense_categories: string[];
+  /** Waluta wyświetlania — preferencja konta, nie przeglądarki. */
+  display_currency: string;
+  /** Język interfejsu — źródło prawdy, ciasteczko jest tylko nośnikiem. */
+  locale: string;
   is_deleted: boolean;
 };
 
