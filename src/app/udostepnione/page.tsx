@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     title: SHARED_TITLE,
     description: SHARED_DESCRIPTION,
     type: "article",
-    images: [{ url: "/opengraph-image.png", width: 1200, height: 630 }],
+    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, type: "image/png" }],
   },
   twitter: {
     card: "summary_large_image",

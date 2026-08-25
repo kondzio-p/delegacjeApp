@@ -104,8 +104,10 @@ Następnie na [vercel.com](https://vercel.com):
 
 Jeśli podgląd linku w Messengerze albo na Facebooku jest pusty:
 
-1. Sprawdź w logach builda, czy nie ma ostrzeżenia o `metadataBase` — oznacza,
-   że aplikacja nie zna własnego adresu i `og:image` wskazuje na localhost.
+1. Sprawdź w źródle strony, czy `og:image` wskazuje na tę samą domenę, pod którą
+   wchodzisz. Aplikacja bierze adres z bieżącego żądania, więc powinien się
+   zgadzać — chyba że `NEXT_PUBLIC_SITE_URL` wskazuje gdzie indziej. Obrazek
+   z martwej domeny jest dla Facebooka tym samym co brak obrazka.
 2. Sprawdź, czy w projekcie na Vercelu nie jest włączona **Deployment Protection**.
    Przy niej robot dostaje stronę logowania Vercela zamiast aplikacji i pokazuje
    jego logo zamiast naszego.
