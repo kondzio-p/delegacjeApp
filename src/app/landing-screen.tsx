@@ -4,9 +4,8 @@
 //
 // Dwie ścieżki narracji przełączane u góry: pracownik na delegacji i właściciel
 // firmy. To dwie różne osoby z dwoma różnymi problemami — pracownik chce
-// wiedzieć, ile zostaje mu na rękę, właściciel chce wiedzieć, ile przepracowali
-// jego ludzie. Wspólny landing bez tego rozdziału mówiłby obu naraz i żadnemu
-// do końca.
+// wiedzieć, ile zostaje mu na rękę, właściciel ile przepracowali jego ludzie.
+// Wspólny tekst bez tego rozdziału mówiłby obu naraz i żadnemu do końca.
 //
 // Animacje: GSAP ze ScrollTriggerem, ale wyłącznie jako podkreślenie treści.
 // Przy `prefers-reduced-motion` nie odpalamy ich wcale — strona ma być
@@ -17,7 +16,6 @@ import {
   Check,
   Clock,
   Coins,
-  Download,
   FileDown,
   Globe,
   Link2,
@@ -32,6 +30,10 @@ import {
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
+import { useT, type Translate } from "@/components/locale-provider";
+import { useFormat } from "@/components/use-format";
+import { formatHours } from "@/lib/money";
+
 import {
   CompanyScreenMock,
   DashboardScreenMock,
@@ -39,6 +41,7 @@ import {
   FinanceScreenMock,
   HoursScreen,
   Phone,
+  ReportCard,
 } from "./landing-phone";
 
 type Role = "pracownik" | "wlasciciel";
@@ -60,12 +63,8 @@ function prefersReducedMotion(): boolean {
  * podmienia. Odwrotna kolejność (start od zera, dorysowanie przez JS) sprawiała,
  * że bez skryptów albo przy nieudanym pobraniu GSAP-a strona chwaliła się
  * „0 zł zostało na rękę" — czyli kłamała w miejscu, które ma budować zaufanie.
- *
- * `text` podajemy gotowe zamiast składać przez `Intl` po obu stronach, żeby
- * serwer i przeglądarka nie mogły się rozejść na spacji nierozdzielającej
- * i wywołać ostrzeżenia o niezgodnej hydracji.
  */
-function CountUp({ to, text, suffix = "" }: { to: number; text: string; suffix?: string }) {
+function CountUp({ to, text }: { to: number; text: string }) {
   const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -81,23 +80,17 @@ function CountUp({ to, text, suffix = "" }: { to: number; text: string; suffix?:
       if (cancelled) return;
       gsap.registerPlugin(ScrollTrigger);
 
-      const format = (value: number) =>
-        new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(Math.round(value));
-
+      // W trakcie animacji liczy się rytm, nie precyzja — stąd surowe cyfry
+      // zamiast pełnego formatowania. Na końcu i tak wraca napis z serwera.
       const counter = { value: 0 };
       const tween = gsap.to(counter, {
         value: to,
         duration: 1.4,
         ease: "power2.out",
         scrollTrigger: { trigger: node, start: "top 90%", once: true },
-        onStart: () => {
-          node.textContent = format(0) + suffix;
-        },
         onUpdate: () => {
-          node.textContent = format(counter.value) + suffix;
+          node.textContent = String(Math.round(counter.value));
         },
-        // Na koniec wracamy do napisu z serwera, żeby ostatnie słowo miał
-        // zawsze ten sam tekst, niezależnie od zaokrągleń po drodze.
         onComplete: () => {
           node.textContent = text;
         },
@@ -114,7 +107,7 @@ function CountUp({ to, text, suffix = "" }: { to: number; text: string; suffix?:
       cancelled = true;
       cleanup?.();
     };
-  }, [to, text, suffix]);
+  }, [to, text]);
 
   return (
     <span ref={ref} className="tabular-nums">
@@ -163,45 +156,43 @@ function useReveal(scope: React.RefObject<HTMLElement | null>) {
 
 /* -------------------------------------------------------------- klocki */
 
-function PrimaryCta({ className = "" }: { className?: string }) {
+function PrimaryCta({ t, className = "" }: { t: Translate; className?: string }) {
   return (
     <Link
       href="/logowanie?tryb=rejestracja"
       className={`flex h-14 items-center justify-center gap-2 rounded-xl bg-primary px-6 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-transform active:scale-[0.98] ${className}`}
     >
-      Załóż konto — za darmo <ArrowRight className="h-5 w-5 shrink-0" />
+      {t("landing.ctaPrimary")} <ArrowRight className="h-5 w-5 shrink-0" />
     </Link>
   );
 }
 
-function SecondaryCta({ className = "" }: { className?: string }) {
+function SecondaryCta({ t, className = "" }: { t: Translate; className?: string }) {
   return (
     <Link
       href="/logowanie"
       className={`flex h-14 items-center justify-center gap-2 rounded-xl border border-border bg-card px-6 text-base font-semibold transition-colors active:bg-secondary ${className}`}
     >
-      <LogIn className="h-5 w-5 shrink-0" /> Mam już konto
+      <LogIn className="h-5 w-5 shrink-0" /> {t("landing.ctaSecondary")}
     </Link>
   );
 }
 
-/** Jeden krok narracji: opis z jednej strony, makieta telefonu z drugiej. */
+/** Jeden krok narracji: opis z jednej strony, makieta z drugiej. */
 function Step({
   index,
   title,
   lead,
   points,
-  phoneTitle,
-  children,
   flip,
+  children,
 }: {
   index: number;
   title: string;
   lead: string;
   points: string[];
-  phoneTitle: string;
-  children: ReactNode;
   flip?: boolean;
+  children: ReactNode;
 }) {
   return (
     <div
@@ -232,59 +223,7 @@ function Step({
       </div>
 
       <div data-reveal className={flip ? "lg:order-1" : ""}>
-        <Phone title={phoneTitle}>{children}</Phone>
-      </div>
-    </div>
-  );
-}
-
-/** Raport dla księgowej — pokazany jako dokument, bo tak się go używa. */
-function ReportCard() {
-  const rows = [
-    { name: "Tomasz Nowak", hours: "47,50", paid: "2 585,21" },
-    { name: "Piotr Wiśniewski", hours: "90,00", paid: "5 601,00" },
-  ];
-
-  return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-xl shadow-primary/10">
-      <div className="border-b border-border px-5 py-4">
-        <p className="text-sm font-semibold">Zestawienie wynagrodzeń</p>
-        <p className="text-xs text-muted-foreground">Kowalski Logistyka · sierpień 2026</p>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[22rem] text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-xs text-muted-foreground">
-              <th className="px-5 py-2 font-medium">Pracownik</th>
-              <th className="px-5 py-2 text-right font-medium">Godziny</th>
-              <th className="px-5 py-2 text-right font-medium">Wypłacono (PLN)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.name} className="border-b border-border/60">
-                <td className="px-5 py-2.5">{row.name}</td>
-                <td className="px-5 py-2.5 text-right tabular-nums">{row.hours}</td>
-                <td className="px-5 py-2.5 text-right tabular-nums">{row.paid}</td>
-              </tr>
-            ))}
-            <tr className="font-bold">
-              <td className="px-5 py-2.5">Razem</td>
-              <td className="px-5 py-2.5 text-right tabular-nums">137,50</td>
-              <td className="px-5 py-2.5 text-right tabular-nums">8 186,21</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div className="flex gap-2 border-t border-border px-5 py-4">
-        <span className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-secondary text-sm font-semibold">
-          <Download className="h-4 w-4" /> CSV
-        </span>
-        <span className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground">
-          <FileDown className="h-4 w-4" /> PDF
-        </span>
+        {children}
       </div>
     </div>
   );
@@ -292,43 +231,28 @@ function ReportCard() {
 
 /* --------------------------------------------------------------- strona */
 
-const FEATURES = [
-  {
-    icon: ArrowRightLeft,
-    title: "Kurs NBP z dnia operacji",
-    text: "Każdy wpis pamięta kurs ze swojego dnia. Podsumowanie sprzed pół roku wygląda dziś tak samo.",
-  },
-  {
-    icon: Coins,
-    title: "Złotówki, euro i dolary",
-    text: "Wpisujesz w walucie, w której płacisz. Oglądasz w tej, w której myślisz.",
-  },
-  {
-    icon: Globe,
-    title: "Cztery języki",
-    text: "Polski, ukraiński, niemiecki i angielski — wybór idzie za kontem, nie za przeglądarką.",
-  },
-  {
-    icon: FileDown,
-    title: "Eksport do CSV i PDF",
-    text: "Zestawienie dla księgowej albo własne dane do arkusza. Bez przepisywania ręcznie.",
-  },
-  {
-    icon: Link2,
-    title: "Podsumowanie linkiem",
-    text: "Wyślij rodzinie albo szefowi podsumowanie wyjazdu. Odbiorca nie musi zakładać konta.",
-  },
-  {
-    icon: Smartphone,
-    title: "Działa jak aplikacja",
-    text: "Dodaj do ekranu głównego telefonu i otwieraj jednym kliknięciem, bez sklepu z aplikacjami.",
-  },
-];
-
 export function LandingScreen() {
+  const t = useT();
+  const fmt = useFormat();
   const [role, setRole] = useState<Role>("pracownik");
   const scope = useRef<HTMLDivElement>(null);
   useReveal(scope);
+
+  const features = [
+    { icon: ArrowRightLeft, title: t("landing.f1Title"), text: t("landing.f1Text") },
+    { icon: Coins, title: t("landing.f2Title"), text: t("landing.f2Text") },
+    { icon: Globe, title: t("landing.f3Title"), text: t("landing.f3Text") },
+    { icon: FileDown, title: t("landing.f4Title"), text: t("landing.f4Text") },
+    { icon: Link2, title: t("landing.f5Title"), text: t("landing.f5Text") },
+    { icon: Smartphone, title: t("landing.f6Title"), text: t("landing.f6Text") },
+  ];
+
+  // Liczby z konta pokazowego, sformatowane w języku odwiedzającego.
+  const stats = [
+    { to: 171, text: formatHours(171), label: t("landing.statHours") },
+    { to: 14242, text: fmt.money(14242, "PLN"), label: t("landing.statPayouts") },
+    { to: 9916, text: fmt.money(9916, "PLN"), label: t("landing.statNet") },
+  ];
 
   return (
     <div ref={scope} className="min-h-screen bg-background text-foreground">
@@ -347,13 +271,13 @@ export function LandingScreen() {
               href="/logowanie"
               className="flex h-11 items-center justify-center rounded-xl px-3 text-sm font-semibold hover:bg-secondary sm:px-4"
             >
-              Zaloguj się
+              {t("auth.submitLogin")}
             </Link>
             <Link
               href="/logowanie?tryb=rejestracja"
               className="flex h-11 items-center justify-center rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground sm:px-5"
             >
-              Załóż konto
+              {t("auth.submitRegister")}
             </Link>
           </div>
         </div>
@@ -363,7 +287,7 @@ export function LandingScreen() {
       <section className="relative overflow-hidden border-b border-border">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/10 via-background to-background"
+          className="pointer-events-none absolute inset-0 bg-linear-to-b from-primary/10 via-background to-background"
         />
         <div
           data-reveal-group
@@ -373,55 +297,40 @@ export function LandingScreen() {
             data-reveal
             className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-1.5 text-xs font-medium text-muted-foreground"
           >
-            <Plane className="h-3.5 w-3.5" /> Dla pracujących za granicą i małych firm
+            <Plane className="h-3.5 w-3.5" /> {t("landing.eyebrow")}
           </p>
 
           <h1
             data-reveal
             className="mx-auto mt-6 max-w-3xl text-balance text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl"
           >
-            Ile naprawdę zostaje Ci z delegacji?
+            {t("landing.headline")}
           </h1>
 
           <p
             data-reveal
             className="mx-auto mt-5 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg"
           >
-            Wpisujesz godziny i wydatki. Godzio przelicza je po kursie NBP z dnia operacji
-            i pokazuje, ile zostaje na rękę. Twój szef widzi godziny i wypłaty — koszty zostają
-            Twoje.
+            {t("landing.lead")}
           </p>
 
           <div
             data-reveal
             className="mx-auto mt-8 flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center"
           >
-            <PrimaryCta className="sm:flex-1" />
-            <SecondaryCta className="sm:flex-1" />
+            <PrimaryCta t={t} className="sm:flex-1" />
+            <SecondaryCta t={t} className="sm:flex-1" />
           </div>
 
-          {/* Liczby z konta demo — nie okrągłe, bo prawdziwe. */}
+          {/* Liczby z konta pokazowego — nie okrągłe, bo prawdziwe. */}
           <div
             data-reveal
             className="mx-auto mt-12 grid w-full max-w-2xl grid-cols-3 gap-3 rounded-2xl border border-border bg-card p-4 sm:gap-6 sm:p-6"
           >
-            {[
-              {
-                value: <CountUp to={171} text="171 h" suffix=" h" />,
-                label: "przepracowanych godzin",
-              },
-              {
-                value: <CountUp to={14242} text="14 242 zł" suffix=" zł" />,
-                label: "wypłat z wyjazdu",
-              },
-              {
-                value: <CountUp to={9916} text="9 916 zł" suffix=" zł" />,
-                label: "zostało na rękę",
-              },
-            ].map((item) => (
+            {stats.map((item) => (
               <div key={item.label} className="min-w-0">
-                <p className="text-lg font-bold tabular-nums text-primary sm:text-2xl">
-                  {item.value}
+                <p className="text-base font-bold tabular-nums text-primary sm:text-2xl">
+                  <CountUp to={item.to} text={item.text} />
                 </p>
                 <p className="mt-1 text-[0.7rem] leading-tight text-muted-foreground sm:text-xs">
                   {item.label}
@@ -430,7 +339,7 @@ export function LandingScreen() {
             ))}
           </div>
           <p data-reveal className="mt-3 text-xs text-muted-foreground">
-            Prawdziwe liczby z konta pokazowego — jeden wyjazd do Niemiec.
+            {t("landing.statsNote")}
           </p>
         </div>
       </section>
@@ -441,8 +350,8 @@ export function LandingScreen() {
           <div className="grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1">
             {(
               [
-                { key: "pracownik", label: "Jestem pracownikiem", icon: Clock },
-                { key: "wlasciciel", label: "Prowadzę firmę", icon: Wallet },
+                { key: "pracownik", label: t("landing.roleWorker"), icon: Clock },
+                { key: "wlasciciel", label: t("landing.roleOwner"), icon: Wallet },
               ] as const
             ).map((option) => (
               <button
@@ -470,111 +379,71 @@ export function LandingScreen() {
           <>
             <Step
               index={1}
-              title="Wpisz godziny — 15 sekund dziennie"
-              lead="Data, od której do której. Nic więcej. Sumę aplikacja policzy sama, także dla zmiany, która przechodzi przez północ."
-              points={[
-                "Wpis przypisujesz do wyjazdu albo zostawiasz luzem",
-                "Zmiana 22:00–06:00 to osiem godzin, nie minus szesnaście",
-                "Poprawisz każdy wpis później, także wstecz",
-              ]}
-              phoneTitle="Godziny Pracy"
+              title={t("landing.w1Title")}
+              lead={t("landing.w1Lead")}
+              points={[t("landing.w1a"), t("landing.w1b"), t("landing.w1c")]}
             >
-              <HoursScreen />
+              <Phone title={t("nav.hours")}>
+                <HoursScreen />
+              </Phone>
             </Step>
 
             <Step
               flip
               index={2}
-              title="Zobacz, ile zostaje na rękę"
-              lead="Wypłaty minus koszty, przeliczone po kursie NBP z dnia każdej operacji — nie po dzisiejszym. Dlatego podsumowanie sprzed pół roku wygląda dziś tak samo."
-              points={[
-                "Realna stawka za godzinę pracy — policzona z tego, co wpłynęło",
-                "Realna stawka za godzinę życia na wyjeździe, razem z czasem wolnym",
-                "Koszty w rozbiciu na paliwo, jedzenie i zakwaterowanie",
-              ]}
-              phoneTitle="Dashboard"
+              title={t("landing.w2Title")}
+              lead={t("landing.w2Lead")}
+              points={[t("landing.w2a"), t("landing.w2b"), t("landing.w2c")]}
             >
-              <DashboardScreenMock />
+              <Phone title={t("nav.dashboard")}>
+                <DashboardScreenMock />
+              </Phone>
             </Step>
 
             <Step
               index={3}
-              title="Twoje koszty zostają Twoje"
-              lead="Właściciel firmy widzi Twoje godziny i wypłaty — bo sam je wypłacił. Paliwo, jedzenie i kwatera to Twoja prywatna sprawa i nikt poza Tobą ich nie zobaczy."
-              points={[
-                "Kurs zamrożony przy wpisie — historia się nie zmienia",
-                "Wydatek wpiszesz wieczorem, z datą sprzed tygodnia",
-                "Wszystkie swoje dane pobierzesz do CSV albo JSON",
-              ]}
-              phoneTitle="Finanse"
+              title={t("landing.w3Title")}
+              lead={t("landing.w3Lead")}
+              points={[t("landing.w3a"), t("landing.w3b"), t("landing.w3c")]}
             >
-              <FinanceScreenMock />
+              <Phone title={t("nav.finance")}>
+                <FinanceScreenMock />
+              </Phone>
             </Step>
           </>
         ) : (
           <>
             <Step
               index={1}
-              title="Pracownicy dołączają sami"
-              lead="Podajesz im dokładną nazwę firmy, oni wpisują ją u siebie w ustawieniach. Ty dostajesz prośbę i decydujesz jednym kliknięciem."
-              points={[
-                "Żadnego zakładania kont za kogoś ani rozsyłania haseł",
-                "Możesz dopisać współwłaściciela — wspólnika albo księgową",
-                "Pracownik, który odchodzi, zabiera konto; jego godziny zostają w rozliczeniu",
-              ]}
-              phoneTitle="Pracownicy"
+              title={t("landing.o1Title")}
+              lead={t("landing.o1Lead")}
+              points={[t("landing.o1a"), t("landing.o1b"), t("landing.o1c")]}
             >
-              <EmployeesScreenMock />
+              <Phone title={t("nav.employees")}>
+                <EmployeesScreenMock />
+              </Phone>
             </Step>
 
             <Step
               flip
               index={2}
-              title="Widzisz godziny swoich ludzi"
-              lead="Kto ile przepracował w wybranym okresie, kto jest teraz na wyjeździe, kiedy zrobił ostatni wpis. Wypłaty przeliczone na złotówki po kursach z dni, w których poszły."
-              points={[
-                "Dowolny zakres dat, nie tylko pełne miesiące",
-                "Podgląd karty pojedynczego pracownika z podziałem na wyjazdy",
-                "Zapomniany wpis dopiszesz pracownikowi sam",
-              ]}
-              phoneTitle="Moja firma"
+              title={t("landing.o2Title")}
+              lead={t("landing.o2Lead")}
+              points={[t("landing.o2a"), t("landing.o2b"), t("landing.o2c")]}
             >
-              <CompanyScreenMock />
+              <Phone title={t("nav.company")}>
+                <CompanyScreenMock />
+              </Phone>
             </Step>
 
-            <div data-reveal-group className="grid items-center gap-10 py-12 sm:py-16 lg:grid-cols-2 lg:gap-16">
-              <div>
-                <span
-                  data-reveal
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground"
-                >
-                  3
-                </span>
-                <h3 data-reveal className="mt-4 text-2xl font-bold sm:text-3xl">
-                  Raport dla księgowej w dwóch kliknięciach
-                </h3>
-                <p data-reveal className="mt-3 text-base leading-relaxed text-muted-foreground">
-                  Gotowe zestawienie osób, godzin i wypłat za wybrany okres. Liczby możesz
-                  poprawić przed wydrukiem — korekta dotyczy tylko tego dokumentu i nie rusza
-                  danych w aplikacji.
-                </p>
-                <ul className="mt-5 space-y-2.5">
-                  {[
-                    "CSV otwiera się w polskim Excelu bez kombinowania z kodowaniem",
-                    "PDF prosto z okna drukowania — bez dodatkowych programów",
-                    "Raport w złotówkach, euro albo dolarach",
-                  ].map((point) => (
-                    <li key={point} data-reveal className="flex items-start gap-2.5 text-sm">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                      <span className="min-w-0">{point}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div data-reveal>
-                <ReportCard />
-              </div>
-            </div>
+            <Step
+              index={3}
+              title={t("landing.o3Title")}
+              lead={t("landing.o3Lead")}
+              points={[t("landing.o3a"), t("landing.o3b"), t("landing.o3c")]}
+            >
+              <ReportCard />
+            </Step>
           </>
         )}
       </main>
@@ -583,10 +452,10 @@ export function LandingScreen() {
       <section className="border-y border-border bg-secondary/40">
         <div data-reveal-group className="mx-auto w-full max-w-6xl px-4 py-14 sm:py-20">
           <h2 data-reveal className="text-center text-2xl font-bold sm:text-3xl">
-            Reszta, która się przydaje
+            {t("landing.featuresTitle")}
           </h2>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((feature) => (
+            {features.map((feature) => (
               <div
                 key={feature.title}
                 data-reveal
@@ -606,7 +475,10 @@ export function LandingScreen() {
       </section>
 
       {/* -------------------------------------------------- prywatność */}
-      <section data-reveal-group className="mx-auto w-full max-w-3xl px-4 py-14 text-center sm:py-20">
+      <section
+        data-reveal-group
+        className="mx-auto w-full max-w-3xl px-4 py-14 text-center sm:py-20"
+      >
         <span
           data-reveal
           className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary"
@@ -614,18 +486,18 @@ export function LandingScreen() {
           <ShieldCheck className="h-6 w-6 text-primary" />
         </span>
         <h2 data-reveal className="mt-5 text-2xl font-bold sm:text-3xl">
-          Jasny podział, kto co widzi
+          {t("landing.privacyTitle")}
         </h2>
         <p data-reveal className="mt-4 text-base leading-relaxed text-muted-foreground">
-          Właściciel firmy widzi <strong className="text-foreground">godziny pracy i wypłaty</strong>{" "}
-          swoich pracowników — to zapis rozliczenia, które sam prowadzi. Koszty, które pracownik
-          ponosi z własnej kieszeni, <strong className="text-foreground">zostają prywatne</strong>{" "}
-          i nie widzi ich nikt poza nim.
+          {t("landing.privacyBody1")}
+        </p>
+        <p data-reveal className="mt-3 text-base font-medium leading-relaxed text-foreground">
+          {t("landing.privacyBody2")}
         </p>
         <div data-reveal className="mt-8 grid gap-3 sm:grid-cols-2">
           {[
-            { icon: UserPlus, text: "Konto zakładasz sam, w minutę, bez karty" },
-            { icon: Share2, text: "Podsumowanie wyjazdu udostępniasz tylko, gdy chcesz" },
+            { icon: UserPlus, text: t("landing.privacyA") },
+            { icon: Share2, text: t("landing.privacyB") },
           ].map((item) => (
             <p
               key={item.text}
@@ -642,17 +514,17 @@ export function LandingScreen() {
       <section className="border-t border-border bg-primary/5">
         <div data-reveal-group className="mx-auto w-full max-w-3xl px-4 py-16 text-center sm:py-20">
           <h2 data-reveal className="text-3xl font-bold sm:text-4xl">
-            Wpisz pierwszy dzień jeszcze dziś
+            {t("landing.finalTitle")}
           </h2>
           <p data-reveal className="mx-auto mt-4 max-w-xl text-base text-muted-foreground">
-            Konto jest darmowe, a pierwszy wpis zajmie Ci mniej czasu niż przeczytanie tego zdania.
+            {t("landing.finalLead")}
           </p>
           <div
             data-reveal
             className="mx-auto mt-8 flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center"
           >
-            <PrimaryCta className="sm:flex-1" />
-            <SecondaryCta className="sm:flex-1" />
+            <PrimaryCta t={t} className="sm:flex-1" />
+            <SecondaryCta t={t} className="sm:flex-1" />
           </div>
         </div>
       </section>
@@ -663,9 +535,10 @@ export function LandingScreen() {
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
               <Clock className="h-4 w-4 text-primary-foreground" />
             </span>
-            <span className="font-semibold text-foreground">Godzio</span> — godziny pracy i wypłaty
+            <span className="font-semibold text-foreground">Godzio</span> —{" "}
+            {t("landing.footerTagline")}
           </p>
-          <p>Kursy walut pochodzą z tabeli A Narodowego Banku Polskiego.</p>
+          <p>{t("landing.footerNote")}</p>
         </div>
       </footer>
     </div>

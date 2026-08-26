@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { Toaster } from "sonner";
 
 import { LocaleProvider } from "@/components/locale-provider";
+import { translate } from "@/lib/i18n/dictionaries";
 import { getLocale } from "@/lib/i18n/locale.server";
 
 import "./globals.css";
@@ -51,10 +52,6 @@ async function siteUrl(): Promise<URL | null> {
   return null;
 }
 
-const TITLE = "Godzio — godziny pracy i wypłaty";
-const DESCRIPTION =
-  "Zapisuj godziny pracy i wypłaty, śledź koszty i realny zarobek. Prosta aplikacja dla pracujących za granicą.";
-
 // Wymiary i typ podajemy obok adresu, bo Facebook pobiera obrazek asynchronicznie:
 // bez nich pierwszy podgląd linku wychodzi bez grafiki, a debugger prosi o
 // `og:image:width` i `og:image:height`. Z nimi kartę da się złożyć od razu.
@@ -78,19 +75,26 @@ export async function generateMetadata(): Promise<Metadata> {
     );
   }
 
+  // Nazwa aplikacji w karcie przeglądarki i w podglądzie linku idzie za
+  // językiem konta. Zaszyty polski był ostatnim miejscem, w którym Niemiec
+  // albo Ukrainiec widział polski napis mimo przełączonego interfejsu.
+  const locale = await getLocale();
+  const title = translate(locale, "meta.appTitle");
+  const description = translate(locale, "meta.appDescription");
+
   return {
     ...(site ? { metadataBase: site } : {}),
     // Podstrony podają samą nazwę ekranu — resztę dokleja szablon.
-    title: { default: TITLE, template: "%s — Godzio" },
-    description: DESCRIPTION,
+    title: { default: title, template: "%s — Godzio" },
+    description,
     applicationName: "Godzio",
     manifest: "/manifest.webmanifest",
     openGraph: {
       type: "website",
       siteName: "Godzio",
       locale: "pl_PL",
-      title: TITLE,
-      description: DESCRIPTION,
+      title,
+      description,
       // Obrazek deklarujemy wprost, choć konwencja `opengraph-image.png` sama
       // dorzuciłaby znacznik. Facebook potrafi odpowiedzieć, że og:image „powinno
       // być podane jawnie", więc nie zostawiamy tego domyślaniu się.
@@ -102,8 +106,8 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: TITLE,
-      description: DESCRIPTION,
+      title,
+      description,
       images: [OG_IMAGE],
     },
   };
