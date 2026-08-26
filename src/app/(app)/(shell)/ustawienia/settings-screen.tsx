@@ -45,7 +45,12 @@ import {
   requestJoinAction,
   setOwnerModeAction,
 } from "@/lib/actions/company";
-import { deleteMyAccountAction, exportMyDataAction } from "@/lib/actions/privacy";
+import {
+  deleteMyAccountAction,
+  exportMyDataAction,
+  exportMyDataCsvAction,
+} from "@/lib/actions/privacy";
+import { downloadFile } from "@/lib/print";
 import { CURRENCIES } from "@/lib/money";
 import { DELETE_CONFIRMATION } from "@/lib/privacy";
 import type { ActionState, SessionUser } from "@/lib/types";
@@ -393,11 +398,17 @@ function RemoveCoOwnerButton({ userId, name }: { userId: string; name: string })
   );
 }
 
+/** Dzień w nazwie pobieranego pliku. */
+function dzisiaj(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 /** Zgoda, eksport własnych danych i usunięcie konta — obowiązki z RODO. */
 function PrivacySection() {
   const [deleteState, deleteAction, deletePending] = useAction(deleteMyAccountAction);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState<"transactions" | "hours" | null>(null);
 
   async function exportData() {
     setExporting(true);
@@ -409,16 +420,34 @@ function PrivacySection() {
       }
       if (!result.json) return;
 
-      // Plik składamy w przeglądarce — serwer oddaje sam tekst.
-      const url = URL.createObjectURL(new Blob([result.json], { type: "application/json" }));
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `godzio-moje-dane-${new Date().toISOString().slice(0, 10)}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
+      downloadFile(`godzio-moje-dane-${dzisiaj()}.json`, result.json, "application/json");
       toast.success("Pobrano Twoje dane");
     } finally {
       setExporting(false);
+    }
+  }
+
+  /**
+   * Dwa arkusze pobierane osobnymi przyciskami, a nie oba naraz: przeglądarki
+   * pytają o zgodę przy drugim pliku z rzędu i łatwo to przeoczyć.
+   */
+  async function exportCsv(kind: "transactions" | "hours") {
+    setExportingCsv(kind);
+    try {
+      const result = await exportMyDataCsvAction();
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+
+      const csv = kind === "hours" ? result.hours : result.transactions;
+      if (!csv) return;
+
+      const name = kind === "hours" ? "godziny" : "koszty-i-wyplaty";
+      downloadFile(`godzio-${name}-${dzisiaj()}.csv`, csv, "text/csv;charset=utf-8");
+      toast.success("Pobrano plik CSV");
+    } finally {
+      setExportingCsv(null);
     }
   }
 
@@ -445,6 +474,27 @@ function PrivacySection() {
       >
         <Download className="h-4 w-4 shrink-0" /> Pobierz moje dane (JSON)
       </button>
+
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => exportCsv("transactions")}
+          disabled={exportingCsv !== null}
+          className="flex h-12 min-w-0 items-center justify-center gap-2 rounded-xl bg-secondary px-3 text-sm font-semibold disabled:opacity-60"
+        >
+          <Download className="h-4 w-4 shrink-0" />
+          <span className="truncate">Koszty i wypłaty (CSV)</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => exportCsv("hours")}
+          disabled={exportingCsv !== null}
+          className="flex h-12 min-w-0 items-center justify-center gap-2 rounded-xl bg-secondary px-3 text-sm font-semibold disabled:opacity-60"
+        >
+          <Download className="h-4 w-4 shrink-0" />
+          <span className="truncate">Godziny pracy (CSV)</span>
+        </button>
+      </div>
 
       {!confirmOpen ? (
         <button

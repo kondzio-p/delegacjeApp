@@ -1,14 +1,24 @@
 "use client";
 
-import { Building2, Clock, FileDown, Plane, RotateCcw, Users, Wallet } from "lucide-react";
+import {
+  Building2,
+  Clock,
+  Download,
+  FileDown,
+  Plane,
+  RotateCcw,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { StatCard } from "@/components/trip-summary-view";
 import { Field, Modal } from "@/components/ui";
+import { csvAmount, toCsv } from "@/lib/csv";
 import { formatHours } from "@/lib/money";
 import { lastMonth, periodLabel, thisMonth, type Period } from "@/lib/period";
-import { isoDay, printDocument } from "@/lib/print";
+import { downloadFile, isoDay, printDocument } from "@/lib/print";
 import type { PayrollRow } from "@/lib/queries";
 import { RATE_CODES, rateToPln, type CurrentRates, type RateCode } from "@/lib/rates";
 import type { CompanyRole } from "@/lib/session";
@@ -235,6 +245,23 @@ function ReportDialog({
   const totalHours = view.reduce((s, r) => s + r.hours, 0);
   const totalAmount = view.reduce((s, r) => s + r.amount, 0);
 
+  /**
+   * CSV odwzorowuje to, co właściciel ma przed oczami: z ręcznymi korektami
+   * i w wybranej walucie raportu. Arkusz rozjeżdżający się z wydrukiem tego
+   * samego okresu byłby gorszy niż jego brak.
+   */
+  const pobierzCsv = () => {
+    const csv = toCsv(view, [
+      { header: "Pracownik", value: (row) => row.name },
+      { header: "Godziny", value: (row) => csvAmount(row.hours) },
+      { header: `Wypłacono (${currency})`, value: (row) => csvAmount(row.amount) },
+      { header: "Skorygowano ręcznie", value: (row) => (row.touched ? "tak" : "") },
+      { header: "Konto usunięte", value: (row) => (row.isDeleted ? "tak" : "") },
+    ]);
+
+    downloadFile(`Raport_${companyName}_${period.from}.csv`, csv, "text/csv;charset=utf-8");
+  };
+
   const edit = (row: (typeof view)[number], patch: Partial<EditedRow>) =>
     setEdits((prev) => ({
       ...prev,
@@ -333,6 +360,13 @@ function ReportDialog({
             className="flex h-12 min-w-0 items-center justify-center gap-2 rounded-xl bg-secondary px-4 text-sm font-semibold disabled:opacity-50"
           >
             <RotateCcw className="h-4 w-4 shrink-0" /> Przywróć
+          </button>
+          <button
+            type="button"
+            onClick={pobierzCsv}
+            className="flex h-12 min-w-0 items-center justify-center gap-2 rounded-xl bg-secondary px-4 text-sm font-semibold"
+          >
+            <Download className="h-4 w-4 shrink-0" /> CSV
           </button>
           <button
             type="button"

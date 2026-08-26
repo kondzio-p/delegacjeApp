@@ -7,12 +7,17 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { endAllSessions, endSession, hashSecret } from "@/lib/auth";
+import { csvAmount, toCsv } from "@/lib/csv";
+import { momentToDay } from "@/lib/day";
 import { prisma } from "@/lib/db";
+import { hoursBetween } from "@/lib/money";
+import { tripLabel } from "@/lib/trip-summary";
 import { DELETE_CONFIRMATION } from "@/lib/privacy";
 import { requireUser } from "@/lib/session";
 import type { ActionState } from "@/lib/types";
 
 export type ExportState = ActionState & { json?: string };
+export type CsvExportState = ActionState & { hours?: string; transactions?: string };
 
 /**
  * Komplet danych użytkownika w jednym pliku.
@@ -82,6 +87,131 @@ export async function exportMyDataAction(): Promise<ExportState> {
   );
 
   return { json };
+}
+
+/**
+ * Te same dane co w eksporcie JSON, ale w postaci, którą księgowa otworzy
+ * w arkuszu. JSON zostaje dla RODO — czytelny maszynowo, ale nie dla człowieka.
+ *
+ * Dwa osobne pliki zamiast jednego: godziny i pieniądze mają inne kolumny,
+ * a sklejone w jeden arkusz z kolumną „typ" nie nadają się do sumowania.
+ */
+export async function exportMyDataCsvAction(): Promise<CsvExportState> {
+  const user = await requireUser();
+
+  const [trips, workEntries, expenses, payouts] = await Promise.all([
+    prisma.trip.findMany({
+      where: { user_id: user.id },
+      select: { id: true, departure_at: true, return_at: true },
+    }),
+    prisma.workEntry.findMany({
+      where: { user_id: user.id },
+      orderBy: [{ work_date: "asc" }, { start_time: "asc" }],
+      select: { work_date: true, start_time: true, end_time: true, trip_id: true },
+    }),
+    prisma.expense.findMany({
+      where: { user_id: user.id },
+      orderBy: { spent_at: "asc" },
+      select: {
+        name: true,
+        amount: true,
+        currency: true,
+        category: true,
+        spent_at: true,
+        nbp_rate: true,
+        nbp_rate_date: true,
+        trip_id: true,
+      },
+    }),
+    prisma.payout.findMany({
+      where: { user_id: user.id },
+      orderBy: { paid_at: "asc" },
+      select: {
+        amount: true,
+        currency: true,
+        note: true,
+        paid_at: true,
+        nbp_rate: true,
+        nbp_rate_date: true,
+        trip_id: true,
+      },
+    }),
+  ]);
+
+  const tripNames = new Map(
+    trips.map((trip) => [
+      trip.id,
+      tripLabel({
+        departure_at: trip.departure_at.toISOString(),
+        return_at: trip.return_at?.toISOString() ?? null,
+      }),
+    ]),
+  );
+  const tripName = (id: string | null) => (id ? (tripNames.get(id) ?? "") : "");
+
+  const hours = toCsv(workEntries, [
+    { header: "Data", value: (row) => row.work_date },
+    { header: "Od", value: (row) => row.start_time },
+    { header: "Do", value: (row) => row.end_time },
+    {
+      header: "Godziny",
+      value: (row) => csvAmount(hoursBetween(row.start_time, row.end_time)),
+    },
+    { header: "Wyjazd", value: (row) => tripName(row.trip_id) },
+  ]);
+
+  // Koszty i wypłaty w jednym arkuszu, bo mają te same kolumny i ten sam sens:
+  // pieniądze, które przeszły przez wyjazd. Znak przy kwocie mówi w którą stronę.
+  type Transakcja = {
+    typ: string;
+    dzien: string;
+    nazwa: string;
+    kategoria: string;
+    kwota: number;
+    waluta: string;
+    kurs: string;
+    kursData: string;
+    trip: string | null;
+  };
+
+  const transakcje: Transakcja[] = [
+    ...expenses.map((row) => ({
+      typ: "Koszt",
+      dzien: momentToDay(row.spent_at),
+      nazwa: row.name,
+      kategoria: row.category,
+      kwota: -Number(row.amount),
+      waluta: row.currency,
+      kurs: row.nbp_rate === null ? "" : csvAmount(Number(row.nbp_rate)),
+      kursData: row.nbp_rate_date ?? "",
+      trip: row.trip_id,
+    })),
+    ...payouts.map((row) => ({
+      typ: "Wypłata",
+      dzien: momentToDay(row.paid_at),
+      nazwa: row.note?.trim() || "Wypłata",
+      kategoria: "",
+      kwota: Number(row.amount),
+      waluta: row.currency,
+      kurs: row.nbp_rate === null ? "" : csvAmount(Number(row.nbp_rate)),
+      kursData: row.nbp_rate_date ?? "",
+      trip: row.trip_id,
+    })),
+  ].sort((a, b) => a.dzien.localeCompare(b.dzien));
+
+  const transactions = toCsv(transakcje, [
+    { header: "Typ", value: (row) => row.typ },
+    { header: "Data", value: (row) => row.dzien },
+    { header: "Nazwa", value: (row) => row.nazwa },
+    { header: "Kategoria", value: (row) => row.kategoria },
+    { header: "Kwota", value: (row) => csvAmount(row.kwota) },
+    { header: "Waluta", value: (row) => row.waluta },
+    { header: "Kurs NBP", value: (row) => row.kurs },
+    { header: "Data kursu", value: (row) => row.kursData },
+    { header: "Wyjazd", value: (row) => tripName(row.trip) },
+  ]);
+
+  return { hours, transactions };
 }
 
 /**
