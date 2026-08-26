@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 
+import { dayToMoment, momentToDay } from "@/lib/day";
 import { prisma } from "@/lib/db";
 import { CURRENCIES, type Currency } from "@/lib/money";
 import { getRateForDate } from "@/lib/nbp";
@@ -17,6 +18,18 @@ const uuid = z.uuid("Nieprawidłowy identyfikator");
 const currency = z.enum(CURRENCIES);
 const localDateTime = z.string().min(1, "Podaj datę i godzinę");
 const dayString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Nieprawidłowa data");
+/**
+ * Dzień operacji — wsteczny wolno, z przyszłości nie.
+ *
+ * Doba zapasu, bo „dziś" zależy od strefy: serwer stoi w UTC, a użytkownik
+ * o 00:30 w Polsce ma już następny dzień i jego „dzisiaj" wyprzedzałoby
+ * serwerowe. Ta kontrola ma odsiewać pomyłki w rodzaju roku 2030, a nie
+ * karać za wpisywanie kosztów po północy.
+ */
+const pastDay = dayString.refine(
+  (day) => day <= isoDate(new Date(Date.now() + 24 * 60 * 60 * 1000)),
+  "Data nie może być z przyszłości",
+);
 const timeString = z.string().regex(/^\d{2}:\d{2}$/, "Nieprawidłowa godzina");
 
 /** Puste pole formularza to brak wartości, nie pusty string. */
@@ -83,19 +96,23 @@ function refreshAll() {
   revalidatePath("/", "layout");
 }
 
+
 /**
  * Kurs NBP zamrażany przy kwocie — ile PLN była warta jednostka tej waluty
  * w dniu operacji. Dzięki temu podsumowanie za marzec wygląda tak samo
  * w czerwcu, niezależnie od tego, co kurs zrobił w międzyczasie.
  *
+ * Dzień bierzemy z formularza, nie z zegara: paragon z poniedziałku wpisany
+ * w środę ma dostać kurs poniedziałkowy. `getRateForDate` sam cofa się do
+ * ostatniej publikacji, więc weekend i święto załatwiają się same.
+ *
  * Brak odpowiedzi z NBP nie może wywalić zapisu: zwracamy null, a odczyt
  * sięgnie wtedy po kurs bieżący.
  */
-async function freezeRate(currency: Currency) {
-  const today = isoDate(new Date());
-  if (currency === "PLN") return { nbp_rate: 1, nbp_rate_date: today };
+async function freezeRate(currency: Currency, day: string) {
+  if (currency === "PLN") return { nbp_rate: 1, nbp_rate_date: day };
 
-  const rate = await getRateForDate(currency, today);
+  const rate = await getRateForDate(currency, day);
   return rate
     ? { nbp_rate: rate.mid, nbp_rate_date: rate.effectiveDate }
     : { nbp_rate: null, nbp_rate_date: null };
@@ -425,21 +442,25 @@ export async function createExpenseAction(
         category: z.enum(user.expense_categories as [string, ...string[]], {
           message: "Nieznana kategoria kosztu",
         }),
+        spent_on: pastDay,
       })
       .safeParse({
         name: formData.get("name"),
         amount: parseAmount(formData.get("amount")),
         currency: formData.get("currency"),
         category: formData.get("category"),
+        spent_on: formData.get("spent_on"),
       });
     if (!parsed.success) return fail(firstIssue(parsed.error));
 
+    const { spent_on, ...values } = parsed.data;
     await prisma.expense.create({
       data: {
         user_id: user.id,
         trip_id: tripId,
-        ...parsed.data,
-        ...(await freezeRate(parsed.data.currency)),
+        ...values,
+        spent_at: dayToMoment(spent_on),
+        ...(await freezeRate(values.currency, spent_on)),
       },
     });
 
@@ -451,6 +472,69 @@ export async function createExpenseAction(
   }
 }
 
+/**
+ * Edycja kosztu.
+ *
+ * Kurs przeliczamy na nowo **tylko** gdy zmieniła się waluta albo dzień —
+ * poprawianie literówki w nazwie nie ma prawa podmienić kursu zamrożonego
+ * przy pierwotnym zapisie, bo to zmieniłoby kwoty w gotowych podsumowaniach.
+ */
+export async function updateExpenseAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const user = await requireUser();
+    const tripId = await resolveTripId(user.id, formData.get("trip_id"));
+
+    const parsed = z
+      .object({
+        id: uuid,
+        name: z.string().trim().min(1, "Podaj nazwę kosztu").max(200),
+        amount: z.number("Podaj kwotę"),
+        currency,
+        category: z.enum(user.expense_categories as [string, ...string[]], {
+          message: "Nieznana kategoria kosztu",
+        }),
+        spent_on: pastDay,
+      })
+      .safeParse({
+        id: formData.get("id"),
+        name: formData.get("name"),
+        amount: parseAmount(formData.get("amount")),
+        currency: formData.get("currency"),
+        category: formData.get("category"),
+        spent_on: formData.get("spent_on"),
+      });
+    if (!parsed.success) return fail(firstIssue(parsed.error));
+
+    const { id, spent_on, ...values } = parsed.data;
+    const existing = await prisma.expense.findFirst({
+      where: { id, user_id: user.id },
+      select: { currency: true, spent_at: true },
+    });
+    if (!existing) return fail("Nie znaleziono kosztu");
+
+    const rateStale =
+      values.currency !== existing.currency || spent_on !== momentToDay(existing.spent_at);
+
+    await prisma.expense.update({
+      where: { id },
+      data: {
+        ...values,
+        trip_id: tripId,
+        spent_at: dayToMoment(spent_on),
+        ...(rateStale ? await freezeRate(values.currency, spent_on) : {}),
+      },
+    });
+
+    refreshAll();
+    return { success: "Zapisano koszt" };
+  } catch (error) {
+    unstable_rethrow(error);
+    return fail(error instanceof Error ? error.message : "Nie udało się zapisać kosztu");
+  }
+}
 export async function deleteExpenseAction(
   _prev: ActionState,
   formData: FormData,
@@ -477,20 +561,23 @@ export async function createPayoutAction(
     const tripId = await resolveTripId(user.id, formData.get("trip_id"));
 
     const parsed = z
-      .object({ amount: z.number("Podaj kwotę"), currency })
+      .object({ amount: z.number("Podaj kwotę"), currency, paid_on: pastDay })
       .safeParse({
         amount: parseAmount(formData.get("amount")),
         currency: formData.get("currency"),
+        paid_on: formData.get("paid_on"),
       });
     if (!parsed.success) return fail(firstIssue(parsed.error));
 
+    const { paid_on, ...values } = parsed.data;
     await prisma.payout.create({
       data: {
         user_id: user.id,
         trip_id: tripId,
-        ...parsed.data,
+        ...values,
         note: optionalText(formData.get("note")),
-        ...(await freezeRate(parsed.data.currency)),
+        paid_at: dayToMoment(paid_on),
+        ...(await freezeRate(values.currency, paid_on)),
       },
     });
 
@@ -502,6 +589,53 @@ export async function createPayoutAction(
   }
 }
 
+/** Edycja wypłaty. Zasada przeliczania kursu jak przy koszcie. */
+export async function updatePayoutAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const user = await requireUser();
+    const tripId = await resolveTripId(user.id, formData.get("trip_id"));
+
+    const parsed = z
+      .object({ id: uuid, amount: z.number("Podaj kwotę"), currency, paid_on: pastDay })
+      .safeParse({
+        id: formData.get("id"),
+        amount: parseAmount(formData.get("amount")),
+        currency: formData.get("currency"),
+        paid_on: formData.get("paid_on"),
+      });
+    if (!parsed.success) return fail(firstIssue(parsed.error));
+
+    const { id, paid_on, ...values } = parsed.data;
+    const existing = await prisma.payout.findFirst({
+      where: { id, user_id: user.id },
+      select: { currency: true, paid_at: true },
+    });
+    if (!existing) return fail("Nie znaleziono wypłaty");
+
+    const rateStale =
+      values.currency !== existing.currency || paid_on !== momentToDay(existing.paid_at);
+
+    await prisma.payout.update({
+      where: { id },
+      data: {
+        ...values,
+        trip_id: tripId,
+        note: optionalText(formData.get("note")),
+        paid_at: dayToMoment(paid_on),
+        ...(rateStale ? await freezeRate(values.currency, paid_on) : {}),
+      },
+    });
+
+    refreshAll();
+    return { success: "Zapisano wypłatę" };
+  } catch (error) {
+    unstable_rethrow(error);
+    return fail(error instanceof Error ? error.message : "Nie udało się zapisać wypłaty");
+  }
+}
 export async function deletePayoutAction(
   _prev: ActionState,
   formData: FormData,

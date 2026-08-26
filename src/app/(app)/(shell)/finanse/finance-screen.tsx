@@ -1,20 +1,24 @@
 "use client";
 
-import { ArrowDownCircle, ArrowUpCircle, Plane, Plus, Trash2 } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Pencil, Plane, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { TripSelect } from "@/components/trip-select";
 import { useAction } from "@/components/use-action";
-import { CurrencyToggle, EmptyState, Field, FormMessage } from "@/components/ui";
+import { CurrencyToggle, EmptyState, Field, FormMessage, Modal } from "@/components/ui";
 import {
   createExpenseAction,
   createPayoutAction,
   deleteExpenseAction,
   deletePayoutAction,
+  updateExpenseAction,
+  updatePayoutAction,
 } from "@/lib/actions/data";
-import { formatDateTime, formatMoney, type Currency } from "@/lib/money";
+import { momentToDay, todayLocal } from "@/lib/day";
+import { formatDate, formatMoney, type Currency } from "@/lib/money";
 import { defaultTripId, tripLabel } from "@/lib/trip-summary";
 import type { Expense, Payout, Trip } from "@/lib/types";
+
 
 export function FinanceScreen({
   trips,
@@ -28,6 +32,8 @@ export function FinanceScreen({
   payouts: Payout[];
 }) {
   const [tab, setTab] = useState<"expense" | "payout">("expense");
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editingPayout, setEditingPayout] = useState<Payout | null>(null);
   const tripById = useMemo(() => new Map(trips.map((t) => [t.id, t])), [trips]);
 
   const transactions = useMemo(() => {
@@ -37,20 +43,27 @@ export function FinanceScreen({
         id: e.id,
         tripId: e.trip_id,
         title: e.name,
-        subtitle: `${e.category} · ${formatDateTime(e.spent_at)}`,
+        // Sama data, bez godziny: godzina zakupu nie niesie informacji, a przy
+        // dacie wstecznej pokazywałaby południe UTC — czyli coś, czego
+        // użytkownik nigdy nie wpisał.
+        subtitle: `${e.category} · ${formatDate(e.spent_at)}`,
         amount: Number(e.amount),
         currency: e.currency,
         at: e.spent_at,
+        expense: e as Expense | undefined,
+        payout: undefined as Payout | undefined,
       })),
       ...payouts.map((p) => ({
         kind: "payout" as const,
         id: p.id,
         tripId: p.trip_id,
         title: p.note?.trim() || "Wypłata",
-        subtitle: formatDateTime(p.paid_at),
+        subtitle: formatDate(p.paid_at),
         amount: Number(p.amount),
         currency: p.currency,
         at: p.paid_at,
+        expense: undefined as Expense | undefined,
+        payout: p as Payout | undefined,
       })),
     ];
     return list.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
@@ -123,31 +136,89 @@ export function FinanceScreen({
                   {formatMoney(t.amount, t.currency)}
                 </p>
               </div>
+              <button
+                type="button"
+                aria-label="Edytuj transakcję"
+                onClick={() => {
+                  if (t.expense) setEditingExpense(t.expense);
+                  else if (t.payout) setEditingPayout(t.payout);
+                }}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl active:bg-secondary"
+              >
+                <Pencil className="h-5 w-5 text-muted-foreground" />
+              </button>
               <DeleteTransactionButton kind={t.kind} id={t.id} />
             </div>
           );
         })}
       </div>
+
+      {editingExpense && (
+        <Modal title="Edytuj koszt" onClose={() => setEditingExpense(null)}>
+          <ExpenseForm
+            trips={trips}
+            categories={categories}
+            expense={editingExpense}
+            onSaved={() => setEditingExpense(null)}
+          />
+        </Modal>
+      )}
+
+      {editingPayout && (
+        <Modal title="Edytuj wypłatę" onClose={() => setEditingPayout(null)}>
+          <PayoutForm trips={trips} payout={editingPayout} onSaved={() => setEditingPayout(null)} />
+        </Modal>
+      )}
     </>
   );
 }
 
-function ExpenseForm({ trips, categories }: { trips: Trip[]; categories: string[] }) {
-  const [name, setName] = useState("");
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState<Currency>("EUR");
-  const [tripId, setTripId] = useState<string | null | undefined>(undefined);
+/**
+ * Jeden formularz w dwóch rolach: bez `expense` dodaje, z nim edytuje.
+ * Dzięki temu pola i walidacja nie mogą rozjechać się między dodawaniem
+ * a poprawianiem.
+ */
+function ExpenseForm({
+  trips,
+  categories,
+  expense,
+  onSaved,
+}: {
+  trips: Trip[];
+  categories: string[];
+  expense?: Expense;
+  onSaved?: () => void;
+}) {
+  const editing = expense !== undefined;
+  const [name, setName] = useState(expense?.name ?? "");
+  const [amount, setAmount] = useState(expense ? String(expense.amount) : "");
+  const [currency, setCurrency] = useState<Currency>(expense?.currency ?? "EUR");
+  const [tripId, setTripId] = useState<string | null | undefined>(
+    expense ? expense.trip_id : undefined,
+  );
   const effectiveTripId = tripId === undefined ? defaultTripId(trips) : tripId;
 
-  const [state, formAction, pending] = useAction(createExpenseAction, {
-    onSuccess: () => {
-      setName("");
-      setAmount("");
+  const [state, formAction, pending] = useAction(
+    editing ? updateExpenseAction : createExpenseAction,
+    {
+      onSuccess: () => {
+        if (editing) {
+          onSaved?.();
+          return;
+        }
+        setName("");
+        setAmount("");
+      },
     },
-  });
+  );
 
   return (
-    <form action={formAction} className="mt-4 space-y-4 rounded-2xl bg-card p-4">
+    <form
+      action={formAction}
+      className={editing ? "space-y-4" : "mt-4 space-y-4 rounded-2xl bg-card p-4"}
+    >
+      {expense && <input type="hidden" name="id" value={expense.id} />}
+
       <TripSelect trips={trips} value={effectiveTripId} onChange={setTripId} />
 
       <Field label="Nazwa">
@@ -176,8 +247,23 @@ function ExpenseForm({ trips, categories }: { trips: Trip[]; categories: string[
 
       <CurrencyToggle name="currency" value={currency} onChange={setCurrency} />
 
+      <Field label="Data wydatku">
+        <input
+          type="date"
+          name="spent_on"
+          required
+          max={todayLocal()}
+          defaultValue={expense ? momentToDay(expense.spent_at) : todayLocal()}
+          className="input-field"
+        />
+      </Field>
+
       <Field label="Kategoria">
-        <select name="category" defaultValue={categories.at(-1) ?? ""} className="input-field">
+        <select
+          name="category"
+          defaultValue={expense?.category ?? categories.at(-1) ?? ""}
+          className="input-field"
+        >
           {categories.map((c) => (
             <option key={c} value={c}>
               {c}
@@ -193,28 +279,57 @@ function ExpenseForm({ trips, categories }: { trips: Trip[]; categories: string[
         disabled={pending}
         className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-destructive text-base font-semibold text-destructive-foreground disabled:opacity-60"
       >
-        <Plus className="h-5 w-5 shrink-0" /> Dodaj koszt
+        {editing ? (
+          "Zapisz koszt"
+        ) : (
+          <>
+            <Plus className="h-5 w-5 shrink-0" /> Dodaj koszt
+          </>
+        )}
       </button>
     </form>
   );
 }
 
-function PayoutForm({ trips }: { trips: Trip[] }) {
-  const [amount, setAmount] = useState("");
-  const [note, setNote] = useState("");
-  const [currency, setCurrency] = useState<Currency>("EUR");
-  const [tripId, setTripId] = useState<string | null | undefined>(undefined);
+function PayoutForm({
+  trips,
+  payout,
+  onSaved,
+}: {
+  trips: Trip[];
+  payout?: Payout;
+  onSaved?: () => void;
+}) {
+  const editing = payout !== undefined;
+  const [amount, setAmount] = useState(payout ? String(payout.amount) : "");
+  const [note, setNote] = useState(payout?.note ?? "");
+  const [currency, setCurrency] = useState<Currency>(payout?.currency ?? "EUR");
+  const [tripId, setTripId] = useState<string | null | undefined>(
+    payout ? payout.trip_id : undefined,
+  );
   const effectiveTripId = tripId === undefined ? defaultTripId(trips) : tripId;
 
-  const [state, formAction, pending] = useAction(createPayoutAction, {
-    onSuccess: () => {
-      setAmount("");
-      setNote("");
+  const [state, formAction, pending] = useAction(
+    editing ? updatePayoutAction : createPayoutAction,
+    {
+      onSuccess: () => {
+        if (editing) {
+          onSaved?.();
+          return;
+        }
+        setAmount("");
+        setNote("");
+      },
     },
-  });
+  );
 
   return (
-    <form action={formAction} className="mt-4 space-y-4 rounded-2xl bg-card p-4">
+    <form
+      action={formAction}
+      className={editing ? "space-y-4" : "mt-4 space-y-4 rounded-2xl bg-card p-4"}
+    >
+      {payout && <input type="hidden" name="id" value={payout.id} />}
+
       <TripSelect trips={trips} value={effectiveTripId} onChange={setTripId} />
 
       <Field label="Kwota">
@@ -230,6 +345,17 @@ function PayoutForm({ trips }: { trips: Trip[] }) {
       </Field>
 
       <CurrencyToggle name="currency" value={currency} onChange={setCurrency} />
+
+      <Field label="Data wypłaty">
+        <input
+          type="date"
+          name="paid_on"
+          required
+          max={todayLocal()}
+          defaultValue={payout ? momentToDay(payout.paid_at) : todayLocal()}
+          className="input-field"
+        />
+      </Field>
 
       <Field label="Notatka (opcjonalnie)">
         <input
@@ -249,7 +375,13 @@ function PayoutForm({ trips }: { trips: Trip[] }) {
         disabled={pending}
         className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-success text-base font-semibold text-success-foreground disabled:opacity-60"
       >
-        <Plus className="h-5 w-5 shrink-0" /> Dodaj wypłatę
+        {editing ? (
+          "Zapisz wypłatę"
+        ) : (
+          <>
+            <Plus className="h-5 w-5 shrink-0" /> Dodaj wypłatę
+          </>
+        )}
       </button>
     </form>
   );
