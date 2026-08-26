@@ -4,10 +4,11 @@ import { ChevronRight, Eye, Flag, Pencil, Plane, Plus, Trash2 } from "lucide-rea
 import Link from "next/link";
 import { useState } from "react";
 
+import { useT } from "@/components/locale-provider";
 import { useAction } from "@/components/use-action";
+import { useFormat } from "@/components/use-format";
 import { EmptyState, Field, FormMessage, Modal } from "@/components/ui";
 import { createTripAction, deleteTripAction, updateTripAction } from "@/lib/actions/data";
-import { formatDateTime } from "@/lib/money";
 import type { Trip } from "@/lib/types";
 
 /** ISO -> wartość dla <input type="datetime-local"> w czasie lokalnym. */
@@ -25,6 +26,8 @@ export function nowLocalInput(): string {
 }
 
 export function TripsScreen({ trips }: { trips: Trip[] }) {
+  const t = useT();
+  const fmt = useFormat();
   const [editing, setEditing] = useState<Trip | null>(null);
   const [prefillNow, setPrefillNow] = useState(false);
 
@@ -33,7 +36,7 @@ export function TripsScreen({ trips }: { trips: Trip[] }) {
       <NewTripForm />
 
       <div className="mt-5 space-y-3">
-        {trips.length === 0 && <EmptyState>Brak zapisanych podróży.</EmptyState>}
+        {trips.length === 0 && <EmptyState>{t("trips.empty")}</EmptyState>}
 
         {trips.map((trip) => {
           const isOngoing = !trip.return_at;
@@ -45,19 +48,19 @@ export function TripsScreen({ trips }: { trips: Trip[] }) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">
-                    {formatDateTime(trip.departure_at)}
+                    {fmt.dateTime(trip.departure_at)}
                   </p>
                   <p className="truncate text-sm text-muted-foreground">
                     {trip.return_at ? (
-                      formatDateTime(trip.return_at)
+                      fmt.dateTime(trip.return_at)
                     ) : (
-                      <span className="font-medium text-success">w toku</span>
+                      <span className="font-medium text-success">{t("common.ongoing")}</span>
                     )}
                   </p>
                 </div>
                 {trip.share_enabled && (
                   <span
-                    title="Link do obserwacji jest aktywny"
+                    title={t("trips.shareActive")}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary"
                   >
                     <Eye className="h-4 w-4 text-accent" />
@@ -76,7 +79,7 @@ export function TripsScreen({ trips }: { trips: Trip[] }) {
                     }}
                     className="flex h-12 min-w-0 flex-1 basis-full items-center justify-center gap-2 rounded-xl bg-success text-sm font-semibold text-success-foreground"
                   >
-                    <Flag className="h-4 w-4 shrink-0" /> Zakończ podróż
+                    <Flag className="h-4 w-4 shrink-0" /> {t("trips.finish")}
                   </button>
                 )}
                 <button
@@ -87,7 +90,7 @@ export function TripsScreen({ trips }: { trips: Trip[] }) {
                   }}
                   className="flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-secondary text-sm font-semibold"
                 >
-                  <Pencil className="h-4 w-4 shrink-0" /> Edytuj
+                  <Pencil className="h-4 w-4 shrink-0" /> {t("trips.edit")}
                 </button>
                 <DeleteTripButton id={trip.id} />
               </div>
@@ -108,6 +111,7 @@ export function TripsScreen({ trips }: { trips: Trip[] }) {
 }
 
 function NewTripForm() {
+  const t = useT();
   const [departure, setDeparture] = useState("");
   const [ret, setRet] = useState("");
   const [ongoing, setOngoing] = useState(false);
@@ -122,7 +126,7 @@ function NewTripForm() {
 
   return (
     <form action={formAction} className="space-y-4 rounded-2xl bg-card p-4">
-      <Field label="Wyjazd z PL (data i godzina)">
+      <Field label={t("trips.departure")}>
         <input
           type="datetime-local"
           name="departure_at"
@@ -141,11 +145,11 @@ function NewTripForm() {
           onChange={(e) => setOngoing(e.target.checked)}
           className="h-6 w-6 shrink-0 accent-[oklch(0.585_0.233_277.117)]"
         />
-        <span className="min-w-0 text-base font-medium">Podróż w toku</span>
+        <span className="min-w-0 text-base font-medium">{t("trips.ongoing")}</span>
       </label>
 
       {!ongoing && (
-        <Field label="Powrót do PL (data i godzina)">
+        <Field label={t("trips.return")}>
           <input
             type="datetime-local"
             name="return_at"
@@ -163,7 +167,7 @@ function NewTripForm() {
         disabled={pending}
         className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary text-base font-semibold text-primary-foreground disabled:opacity-60"
       >
-        <Plus className="h-5 w-5 shrink-0" /> Dodaj podróż
+        <Plus className="h-5 w-5 shrink-0" /> {t("trips.add")}
       </button>
     </form>
   );
@@ -178,6 +182,7 @@ function EditTripModal({
   prefillReturnWithNow: boolean;
   onClose: () => void;
 }) {
+  const t = useT();
   const [state, formAction, pending] = useAction(updateTripAction, { onSuccess: onClose });
   const [departure, setDeparture] = useState(() => toLocalInput(trip.departure_at));
   const [ret, setRet] = useState(() =>
@@ -185,11 +190,11 @@ function EditTripModal({
   );
 
   return (
-    <Modal title="Edytuj podróż" onClose={onClose}>
+    <Modal title={t("trips.editTitle")} onClose={onClose}>
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="id" value={trip.id} />
 
-        <Field label="Wyjazd z PL (data i godzina)">
+        <Field label={t("trips.departure")}>
           <input
             type="datetime-local"
             name="departure_at"
@@ -200,7 +205,7 @@ function EditTripModal({
           />
         </Field>
 
-        <Field label="Powrót do PL (puste = podróż w toku)">
+        <Field label={t("trips.returnOrOngoing")}>
           <input
             type="datetime-local"
             name="return_at"
@@ -216,14 +221,14 @@ function EditTripModal({
             onClick={() => setRet(nowLocalInput())}
             className="flex h-12 min-w-0 items-center justify-center gap-2 rounded-xl bg-secondary text-sm font-semibold"
           >
-            <Flag className="h-4 w-4 shrink-0" /> Teraz
+            <Flag className="h-4 w-4 shrink-0" /> {t("trips.now")}
           </button>
           <button
             type="button"
             onClick={() => setRet("")}
             className="flex h-12 min-w-0 items-center justify-center rounded-xl bg-secondary text-sm font-semibold"
           >
-            W toku
+            {t("trips.stillOngoing")}
           </button>
         </div>
 
@@ -234,7 +239,7 @@ function EditTripModal({
           disabled={pending}
           className="flex h-14 w-full items-center justify-center rounded-xl bg-primary text-base font-semibold text-primary-foreground disabled:opacity-60"
         >
-          Zapisz zmiany
+          {t("trips.save")}
         </button>
       </form>
     </Modal>
@@ -242,6 +247,7 @@ function EditTripModal({
 }
 
 function DeleteTripButton({ id }: { id: string }) {
+  const t = useT();
   const [, formAction, pending] = useAction(deleteTripAction, { toastError: true });
 
   return (
@@ -252,7 +258,7 @@ function DeleteTripButton({ id }: { id: string }) {
         disabled={pending}
         className="flex h-12 w-full min-w-0 items-center justify-center gap-2 rounded-xl bg-secondary text-sm font-semibold text-destructive disabled:opacity-50"
       >
-        <Trash2 className="h-4 w-4 shrink-0" /> Usuń
+        <Trash2 className="h-4 w-4 shrink-0" /> {t("trips.delete")}
       </button>
     </form>
   );

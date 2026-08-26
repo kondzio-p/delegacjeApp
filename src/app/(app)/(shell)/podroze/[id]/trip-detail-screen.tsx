@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { useT } from "@/components/locale-provider";
 import { useRates } from "@/components/rates-provider";
 import { useSettings } from "@/components/use-settings";
 import {
@@ -14,9 +15,9 @@ import {
   WorkEntriesList,
 } from "@/components/trip-summary-view";
 import { useAction } from "@/components/use-action";
+import { useFormat } from "@/components/use-format";
 import { EmptyState, Modal } from "@/components/ui";
 import { setTripShareAction } from "@/lib/actions/data";
-import { formatDate, formatDateTime } from "@/lib/money";
 import { isoDay, printDocument } from "@/lib/print";
 import { summarizeTrip } from "@/lib/trip-summary";
 import type { Expense, Payout, Trip, WorkEntry } from "@/lib/types";
@@ -32,6 +33,8 @@ export function TripDetailScreen({
   expenses: Expense[];
   payouts: Payout[];
 }) {
+  const t = useT();
+  const fmt = useFormat();
   const { display } = useSettings();
   const rates = useRates();
   const [now] = useState(() => Date.now());
@@ -49,8 +52,9 @@ export function TripDetailScreen({
         display,
         rates,
         now,
+        locale: fmt.locale,
       }),
-    [trip, workEntries, expenses, payouts, display, rates, now],
+    [trip, workEntries, expenses, payouts, display, rates, now, fmt.locale],
   );
 
   return (
@@ -60,31 +64,31 @@ export function TripDetailScreen({
           href="/podroze"
           className="flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-card px-4 text-sm font-semibold active:bg-secondary"
         >
-          <ArrowLeft className="h-5 w-5 shrink-0" /> Wróć do listy
+          <ArrowLeft className="h-5 w-5 shrink-0" /> {t("tripDetail.back")}
         </Link>
         <button
           type="button"
           onClick={() => setShareOpen(true)}
-          aria-label="Udostępnij podsumowanie"
+          aria-label={t("tripDetail.shareTitle")}
           className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-card px-4 text-sm font-semibold active:bg-secondary"
         >
-          <Share2 className="h-5 w-5 shrink-0" /> Udostępnij
+          <Share2 className="h-5 w-5 shrink-0" /> {t("tripDetail.share")}
         </button>
       </div>
 
       {trip.share_enabled && (
         <p className="no-print mt-3 flex items-center gap-2 rounded-xl bg-secondary px-4 py-3 text-sm">
           <Eye className="h-4 w-4 shrink-0 text-accent" />
-          <span className="min-w-0">Link do obserwacji jest aktywny</span>
+          <span className="min-w-0">{t("trips.shareActive")}</span>
         </p>
       )}
 
       {/* Nagłówek widoczny wyłącznie w PDF/na wydruku. */}
       <div className="print-only mb-4">
-        <h1 className="text-xl font-bold">Podsumowanie podróży</h1>
+        <h1 className="text-xl font-bold">{t("tripDetail.printTitle")}</h1>
         <p className="text-sm">
-          {formatDateTime(trip.departure_at)} —{" "}
-          {trip.return_at ? formatDateTime(trip.return_at) : "podróż w toku"}
+          {fmt.dateTime(trip.departure_at)} —{" "}
+          {trip.return_at ? fmt.dateTime(trip.return_at) : t("tripDetail.ongoingLong")}
         </p>
       </div>
 
@@ -94,31 +98,30 @@ export function TripDetailScreen({
             <Plane className="h-5 w-5 text-primary" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">{formatDateTime(trip.departure_at)}</p>
+            <p className="truncate text-sm font-semibold">{fmt.dateTime(trip.departure_at)}</p>
             <p className="truncate text-sm text-muted-foreground">
               {trip.return_at ? (
-                formatDateTime(trip.return_at)
+                fmt.dateTime(trip.return_at)
               ) : (
-                <span className="font-medium text-success">w toku</span>
+                <span className="font-medium text-success">{t("common.ongoing")}</span>
               )}
             </p>
           </div>
         </div>
         <p className="mt-3 rounded-xl bg-secondary px-4 py-3 text-sm">
-          Czas trwania:{" "}
+          {t("tripDetail.duration")}{" "}
           <span className="font-semibold tabular-nums">
-            {summary.tripDays} dni {summary.tripRest} h
+            {t("tripDetail.durationValue", { days: summary.tripDays, hours: summary.tripRest })}
           </span>
-          {summary.isOngoing && <span className="text-muted-foreground"> (liczone do teraz)</span>}
+          {summary.isOngoing && (
+            <span className="text-muted-foreground"> {t("tripDetail.untilNow")}</span>
+          )}
         </p>
       </section>
 
       {summary.isEmpty ? (
         <div className="mt-4">
-          <EmptyState>
-            Brak wpisów przypisanych do tej podróży. Dodając godziny pracy, koszty lub wypłaty,
-            wybierz tę podróż w polu „Podróż”.
-          </EmptyState>
+          <EmptyState>{t("tripDetail.empty")}</EmptyState>
         </div>
       ) : (
         <>
@@ -135,6 +138,8 @@ export function TripDetailScreen({
 }
 
 function ShareDialog({ trip, onClose }: { trip: Trip; onClose: () => void }) {
+  const t = useT();
+  const fmt = useFormat();
   const [, formAction, pending] = useAction(setTripShareAction, { toastError: true });
 
   function shareUrl(): string {
@@ -147,9 +152,9 @@ function ShareDialog({ trip, onClose }: { trip: Trip; onClose: () => void }) {
     if (!url) return;
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("Link skopiowany do schowka");
+      toast.success(t("tripDetail.copied"));
     } catch {
-      toast.error("Nie udało się skopiować linku");
+      toast.error(t("tripDetail.copyFailed"));
     }
   }
 
@@ -158,7 +163,8 @@ function ShareDialog({ trip, onClose }: { trip: Trip; onClose: () => void }) {
     if (!url) return;
     try {
       if (typeof navigator !== "undefined" && navigator.share) {
-        await navigator.share({ title: `Wyjazd ${formatDate(trip.departure_at)}`, url });
+        const title = t("tripDetail.shareSubject", { date: fmt.date(trip.departure_at) });
+        await navigator.share({ title, url });
         return;
       }
       await copyLink();
@@ -170,7 +176,7 @@ function ShareDialog({ trip, onClose }: { trip: Trip; onClose: () => void }) {
   }
 
   return (
-    <Modal title="Udostępnij podsumowanie" onClose={onClose}>
+    <Modal title={t("tripDetail.shareTitle")} onClose={onClose}>
       <div className="rounded-xl bg-secondary p-4">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-card">
@@ -181,11 +187,9 @@ function ShareDialog({ trip, onClose }: { trip: Trip; onClose: () => void }) {
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold">Link do obserwacji</p>
+            <p className="text-sm font-semibold">{t("tripDetail.watchLink")}</p>
             <p className="text-xs text-muted-foreground">
-              {trip.share_enabled
-                ? "Każdy z linkiem widzi to podsumowanie bez logowania"
-                : "Wyłączony — link nikomu nic nie pokaże"}
+              {trip.share_enabled ? t("tripDetail.watchOn") : t("tripDetail.watchOff")}
             </p>
           </div>
         </div>
@@ -203,7 +207,7 @@ function ShareDialog({ trip, onClose }: { trip: Trip; onClose: () => void }) {
             }`}
           >
             <span className="min-w-0 truncate">
-              {trip.share_enabled ? "Udostępnianie włączone" : "Udostępnianie wyłączone"}
+              {trip.share_enabled ? t("tripDetail.sharingOn") : t("tripDetail.sharingOff")}
             </span>
             <span
               aria-hidden
@@ -231,14 +235,14 @@ function ShareDialog({ trip, onClose }: { trip: Trip; onClose: () => void }) {
                 onClick={sendLink}
                 className="flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground"
               >
-                <Link2 className="h-4 w-4 shrink-0" /> Wyślij link
+                <Link2 className="h-4 w-4 shrink-0" /> {t("tripDetail.sendLink")}
               </button>
               <button
                 type="button"
                 onClick={copyLink}
                 className="flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-card text-sm font-semibold"
               >
-                <Copy className="h-4 w-4 shrink-0" /> Kopiuj
+                <Copy className="h-4 w-4 shrink-0" /> {t("tripDetail.copy")}
               </button>
             </div>
           </>
@@ -257,10 +261,8 @@ function ShareDialog({ trip, onClose }: { trip: Trip; onClose: () => void }) {
           <FileDown className="h-5 w-5 text-accent" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">Eksportuj do PDF</p>
-          <p className="text-xs text-muted-foreground">
-            W oknie drukowania wybierz „Zapisz jako PDF”
-          </p>
+          <p className="text-sm font-semibold">{t("tripDetail.exportPdf")}</p>
+          <p className="text-xs text-muted-foreground">{t("tripDetail.exportPdfHint")}</p>
         </div>
       </button>
     </Modal>
