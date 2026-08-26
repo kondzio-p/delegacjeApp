@@ -3,8 +3,10 @@
 import { ArrowDownCircle, ArrowUpCircle, Pencil, Plane, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { useT } from "@/components/locale-provider";
 import { TripSelect } from "@/components/trip-select";
 import { useAction } from "@/components/use-action";
+import { useFormat } from "@/components/use-format";
 import { CurrencyToggle, EmptyState, Field, FormMessage, Modal } from "@/components/ui";
 import {
   createExpenseAction,
@@ -15,8 +17,8 @@ import {
   updatePayoutAction,
 } from "@/lib/actions/data";
 import { momentToDay, todayLocal } from "@/lib/day";
-import { formatDate, formatMoney, type Currency } from "@/lib/money";
-import { defaultTripId, tripLabel } from "@/lib/trip-summary";
+import { type Currency } from "@/lib/money";
+import { defaultTripId } from "@/lib/trip-summary";
 import type { Expense, Payout, Trip } from "@/lib/types";
 
 
@@ -31,10 +33,12 @@ export function FinanceScreen({
   expenses: Expense[];
   payouts: Payout[];
 }) {
+  const t = useT();
+  const fmt = useFormat();
   const [tab, setTab] = useState<"expense" | "payout">("expense");
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [editingPayout, setEditingPayout] = useState<Payout | null>(null);
-  const tripById = useMemo(() => new Map(trips.map((t) => [t.id, t])), [trips]);
+  const tripById = useMemo(() => new Map(trips.map((trip) => [trip.id, trip])), [trips]);
 
   const transactions = useMemo(() => {
     const list = [
@@ -46,7 +50,7 @@ export function FinanceScreen({
         // Sama data, bez godziny: godzina zakupu nie niesie informacji, a przy
         // dacie wstecznej pokazywałaby południe UTC — czyli coś, czego
         // użytkownik nigdy nie wpisał.
-        subtitle: `${e.category} · ${formatDate(e.spent_at)}`,
+        subtitle: `${e.category} · ${fmt.date(e.spent_at)}`,
         amount: Number(e.amount),
         currency: e.currency,
         at: e.spent_at,
@@ -57,8 +61,8 @@ export function FinanceScreen({
         kind: "payout" as const,
         id: p.id,
         tripId: p.trip_id,
-        title: p.note?.trim() || "Wypłata",
-        subtitle: formatDate(p.paid_at),
+        title: p.note?.trim() || t("finance.payout"),
+        subtitle: fmt.date(p.paid_at),
         amount: Number(p.amount),
         currency: p.currency,
         at: p.paid_at,
@@ -67,7 +71,7 @@ export function FinanceScreen({
       })),
     ];
     return list.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
-  }, [expenses, payouts]);
+  }, [expenses, payouts, fmt, t]);
 
   return (
     <>
@@ -81,7 +85,7 @@ export function FinanceScreen({
               : "text-muted-foreground"
           }`}
         >
-          Koszt
+          {t("finance.expense")}
         </button>
         <button
           type="button"
@@ -90,7 +94,7 @@ export function FinanceScreen({
             tab === "payout" ? "bg-success text-success-foreground" : "text-muted-foreground"
           }`}
         >
-          Wypłata
+          {t("finance.payout")}
         </button>
       </div>
 
@@ -101,60 +105,60 @@ export function FinanceScreen({
       )}
 
       <h2 className="mt-6 mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        Historia transakcji
+        {t("finance.history")}
       </h2>
       <div className="space-y-3">
-        {transactions.length === 0 && <EmptyState>Brak transakcji.</EmptyState>}
+        {transactions.length === 0 && <EmptyState>{t("finance.empty")}</EmptyState>}
 
-        {transactions.map((t) => {
-          const trip = t.tripId ? tripById.get(t.tripId) : undefined;
+        {transactions.map((row) => {
+          const trip = row.tripId ? tripById.get(row.tripId) : undefined;
           return (
             <div
-              key={`${t.kind}-${t.id}`}
+              key={`${row.kind}-${row.id}`}
               className="flex items-center gap-3 rounded-2xl bg-card p-4"
             >
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-secondary">
-                {t.kind === "expense" ? (
+                {row.kind === "expense" ? (
                   <ArrowDownCircle className="h-5 w-5 text-destructive" />
                 ) : (
                   <ArrowUpCircle className="h-5 w-5 text-success" />
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{t.title}</p>
-                <p className="truncate text-xs text-muted-foreground">{t.subtitle}</p>
+                <p className="truncate text-sm font-semibold">{row.title}</p>
+                <p className="truncate text-xs text-muted-foreground">{row.subtitle}</p>
                 <p className="mt-1 flex items-center gap-1 truncate text-xs text-muted-foreground">
                   <Plane className="h-3 w-3 shrink-0" />
-                  {trip ? tripLabel(trip) : "bez przypisania"}
+                  {trip ? fmt.trip(trip) : t("common.unassigned")}
                 </p>
                 <p
                   className={`mt-1 text-sm font-bold tabular-nums ${
-                    t.kind === "expense" ? "text-destructive" : "text-success"
+                    row.kind === "expense" ? "text-destructive" : "text-success"
                   }`}
                 >
-                  {t.kind === "expense" ? "-" : "+"}
-                  {formatMoney(t.amount, t.currency)}
+                  {row.kind === "expense" ? "-" : "+"}
+                  {fmt.money(row.amount, row.currency)}
                 </p>
               </div>
               <button
                 type="button"
-                aria-label="Edytuj transakcję"
+                aria-label={t("finance.editTransaction")}
                 onClick={() => {
-                  if (t.expense) setEditingExpense(t.expense);
-                  else if (t.payout) setEditingPayout(t.payout);
+                  if (row.expense) setEditingExpense(row.expense);
+                  else if (row.payout) setEditingPayout(row.payout);
                 }}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl active:bg-secondary"
               >
                 <Pencil className="h-5 w-5 text-muted-foreground" />
               </button>
-              <DeleteTransactionButton kind={t.kind} id={t.id} />
+              <DeleteTransactionButton kind={row.kind} id={row.id} />
             </div>
           );
         })}
       </div>
 
       {editingExpense && (
-        <Modal title="Edytuj koszt" onClose={() => setEditingExpense(null)}>
+        <Modal title={t("finance.editExpense")} onClose={() => setEditingExpense(null)}>
           <ExpenseForm
             trips={trips}
             categories={categories}
@@ -165,7 +169,7 @@ export function FinanceScreen({
       )}
 
       {editingPayout && (
-        <Modal title="Edytuj wypłatę" onClose={() => setEditingPayout(null)}>
+        <Modal title={t("finance.editPayout")} onClose={() => setEditingPayout(null)}>
           <PayoutForm trips={trips} payout={editingPayout} onSaved={() => setEditingPayout(null)} />
         </Modal>
       )}
@@ -189,6 +193,7 @@ function ExpenseForm({
   expense?: Expense;
   onSaved?: () => void;
 }) {
+  const t = useT();
   const editing = expense !== undefined;
   const [name, setName] = useState(expense?.name ?? "");
   const [amount, setAmount] = useState(expense ? String(expense.amount) : "");
@@ -221,19 +226,19 @@ function ExpenseForm({
 
       <TripSelect trips={trips} value={effectiveTripId} onChange={setTripId} />
 
-      <Field label="Nazwa">
+      <Field label={t("common.name")}>
         <input
           name="name"
           required
           maxLength={100}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Tankowanie"
+          placeholder={t("finance.namePlaceholder")}
           className="input-field"
         />
       </Field>
 
-      <Field label="Kwota">
+      <Field label={t("common.amount")}>
         <input
           name="amount"
           required
@@ -247,7 +252,7 @@ function ExpenseForm({
 
       <CurrencyToggle name="currency" value={currency} onChange={setCurrency} />
 
-      <Field label="Data wydatku">
+      <Field label={t("finance.spentOn")}>
         <input
           type="date"
           name="spent_on"
@@ -258,7 +263,7 @@ function ExpenseForm({
         />
       </Field>
 
-      <Field label="Kategoria">
+      <Field label={t("finance.category")}>
         <select
           name="category"
           defaultValue={expense?.category ?? categories.at(-1) ?? ""}
@@ -280,10 +285,10 @@ function ExpenseForm({
         className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-destructive text-base font-semibold text-destructive-foreground disabled:opacity-60"
       >
         {editing ? (
-          "Zapisz koszt"
+          t("finance.saveExpense")
         ) : (
           <>
-            <Plus className="h-5 w-5 shrink-0" /> Dodaj koszt
+            <Plus className="h-5 w-5 shrink-0" /> {t("finance.addExpense")}
           </>
         )}
       </button>
@@ -300,6 +305,7 @@ function PayoutForm({
   payout?: Payout;
   onSaved?: () => void;
 }) {
+  const t = useT();
   const editing = payout !== undefined;
   const [amount, setAmount] = useState(payout ? String(payout.amount) : "");
   const [note, setNote] = useState(payout?.note ?? "");
@@ -332,7 +338,7 @@ function PayoutForm({
 
       <TripSelect trips={trips} value={effectiveTripId} onChange={setTripId} />
 
-      <Field label="Kwota">
+      <Field label={t("common.amount")}>
         <input
           name="amount"
           required
@@ -346,7 +352,7 @@ function PayoutForm({
 
       <CurrencyToggle name="currency" value={currency} onChange={setCurrency} />
 
-      <Field label="Data wypłaty">
+      <Field label={t("finance.paidOn")}>
         <input
           type="date"
           name="paid_on"
@@ -357,13 +363,13 @@ function PayoutForm({
         />
       </Field>
 
-      <Field label="Notatka (opcjonalnie)">
+      <Field label={t("finance.note")}>
         <input
           name="note"
           maxLength={200}
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="Zaliczka od szefa"
+          placeholder={t("finance.notePlaceholder")}
           className="input-field"
         />
       </Field>
@@ -376,10 +382,10 @@ function PayoutForm({
         className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-success text-base font-semibold text-success-foreground disabled:opacity-60"
       >
         {editing ? (
-          "Zapisz wypłatę"
+          t("finance.savePayout")
         ) : (
           <>
-            <Plus className="h-5 w-5 shrink-0" /> Dodaj wypłatę
+            <Plus className="h-5 w-5 shrink-0" /> {t("finance.addPayout")}
           </>
         )}
       </button>
@@ -388,6 +394,7 @@ function PayoutForm({
 }
 
 function DeleteTransactionButton({ kind, id }: { kind: "expense" | "payout"; id: string }) {
+  const t = useT();
   const action = kind === "expense" ? deleteExpenseAction : deletePayoutAction;
   const [, formAction, pending] = useAction(action, { toastError: true });
 
@@ -397,7 +404,7 @@ function DeleteTransactionButton({ kind, id }: { kind: "expense" | "payout"; id:
       <button
         type="submit"
         disabled={pending}
-        aria-label="Usuń transakcję"
+        aria-label={t("finance.deleteTransaction")}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-destructive active:bg-secondary disabled:opacity-50"
       >
         <Trash2 className="h-5 w-5" />

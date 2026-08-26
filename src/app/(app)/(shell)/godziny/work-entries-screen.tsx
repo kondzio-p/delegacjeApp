@@ -3,15 +3,19 @@
 import { Clock, Plane, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
+import { useT } from "@/components/locale-provider";
 import { TripSelect } from "@/components/trip-select";
 import { useAction } from "@/components/use-action";
+import { useFormat } from "@/components/use-format";
 import { EmptyState, Field, FormMessage } from "@/components/ui";
 import { createWorkEntryAction, deleteWorkEntryAction } from "@/lib/actions/data";
-import { formatDate, formatHours, hoursBetween } from "@/lib/money";
-import { defaultTripId, tripLabel } from "@/lib/trip-summary";
+import { formatHours, hoursBetween } from "@/lib/money";
+import { defaultTripId } from "@/lib/trip-summary";
 import type { Trip, WorkEntry } from "@/lib/types";
 
 export function WorkEntriesScreen({ trips, entries }: { trips: Trip[]; entries: WorkEntry[] }) {
+  const t = useT();
+  const fmt = useFormat();
   const [date, setDate] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -29,14 +33,14 @@ export function WorkEntriesScreen({ trips, entries }: { trips: Trip[]; entries: 
   });
 
   const totalHours = entries.reduce((s, e) => s + hoursBetween(e.start_time, e.end_time), 0);
-  const tripById = new Map(trips.map((t) => [t.id, t]));
+  const tripById = new Map(trips.map((trip) => [trip.id, trip]));
 
   return (
     <>
       <form action={formAction} className="space-y-4 rounded-2xl bg-card p-4">
         <TripSelect trips={trips} value={effectiveTripId} onChange={setTripId} />
 
-        <Field label="Data">
+        <Field label={t("common.date")}>
           <input
             type="date"
             name="work_date"
@@ -48,7 +52,7 @@ export function WorkEntriesScreen({ trips, entries }: { trips: Trip[]; entries: 
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Od">
+          <Field label={t("common.from")}>
             <input
               type="time"
               name="start_time"
@@ -58,7 +62,7 @@ export function WorkEntriesScreen({ trips, entries }: { trips: Trip[]; entries: 
               className="input-field input-field-compact"
             />
           </Field>
-          <Field label="Do">
+          <Field label={t("common.to")}>
             <input
               type="time"
               name="end_time"
@@ -77,17 +81,17 @@ export function WorkEntriesScreen({ trips, entries }: { trips: Trip[]; entries: 
           disabled={pending}
           className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary text-base font-semibold text-primary-foreground disabled:opacity-60"
         >
-          <Plus className="h-5 w-5 shrink-0" /> Dodaj wpis
+          <Plus className="h-5 w-5 shrink-0" /> {t("hours.add")}
         </button>
       </form>
 
       <p className="mt-4 rounded-2xl bg-card p-4 text-sm text-muted-foreground">
-        Razem przepracowane:{" "}
+        {t("hours.totalWorked")}{" "}
         <span className="font-semibold text-foreground">{formatHours(totalHours)}</span>
       </p>
 
       <div className="mt-4 space-y-3">
-        {entries.length === 0 && <EmptyState>Brak wpisów.</EmptyState>}
+        {entries.length === 0 && <EmptyState>{t("hours.empty")}</EmptyState>}
 
         {entries.map((entry) => {
           const hours = hoursBetween(entry.start_time, entry.end_time);
@@ -99,12 +103,12 @@ export function WorkEntriesScreen({ trips, entries }: { trips: Trip[]; entries: 
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">
-                  {formatDate(entry.work_date)} · {entry.start_time}–{entry.end_time}
+                  {fmt.date(entry.work_date)} · {entry.start_time}–{entry.end_time}
                 </p>
                 <p className="truncate text-sm text-muted-foreground">{formatHours(hours)}</p>
                 <p className="mt-1 flex items-center gap-1 truncate text-xs text-muted-foreground">
                   <Plane className="h-3 w-3 shrink-0" />
-                  {trip ? tripLabel(trip) : "bez przypisania"}
+                  {trip ? fmt.trip(trip) : t("common.unassigned")}
                 </p>
               </div>
               <DeleteEntryButton id={entry.id} />
@@ -117,6 +121,7 @@ export function WorkEntriesScreen({ trips, entries }: { trips: Trip[]; entries: 
 }
 
 function DeleteEntryButton({ id }: { id: string }) {
+  const t = useT();
   const [, formAction, pending] = useAction(deleteWorkEntryAction, { toastError: true });
 
   return (
@@ -125,7 +130,7 @@ function DeleteEntryButton({ id }: { id: string }) {
       <button
         type="submit"
         disabled={pending}
-        aria-label="Usuń wpis"
+        aria-label={t("hours.delete")}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-destructive active:bg-secondary disabled:opacity-50"
       >
         <Trash2 className="h-5 w-5" />

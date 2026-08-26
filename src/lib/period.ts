@@ -3,6 +3,8 @@
 // Zakres jest zawsze domknięty od lewej i otwarty od prawej: [from, to).
 // Dzięki temu ostatni dzień miesiąca wchodzi w całości i nie trzeba się
 // zastanawiać nad godzinami.
+import { DEFAULT_LOCALE, type Locale } from "./i18n/config";
+import { intlLocale } from "./money";
 import { isoDate } from "./rates";
 
 export type Period = { from: string; to: string };
@@ -39,10 +41,11 @@ export function periodFromParams(from?: string, to?: string, now = new Date()): 
 }
 
 /** Etykieta zakresu: „sierpień 2026" dla pełnego miesiąca, inaczej od–do. */
-export function periodLabel(period: Period): string {
+export function periodLabel(period: Period, locale: Locale = DEFAULT_LOCALE): string {
+  const intl = intlLocale(locale);
   const month = thisMonth(new Date(`${period.from}T12:00:00`));
   if (month.from === period.from && month.to === period.to) {
-    return new Date(`${period.from}T12:00:00`).toLocaleDateString("pl-PL", {
+    return new Date(`${period.from}T12:00:00`).toLocaleDateString(intl, {
       month: "long",
       year: "numeric",
     });
@@ -50,6 +53,6 @@ export function periodLabel(period: Period): string {
   // `to` jest otwarte, więc pokazujemy dzień wcześniej — tak czyta to człowiek.
   const lastDay = new Date(`${period.to}T12:00:00`);
   lastDay.setDate(lastDay.getDate() - 1);
-  const fmt = (d: Date) => d.toLocaleDateString("pl-PL");
+  const fmt = (d: Date) => d.toLocaleDateString(intl);
   return `${fmt(new Date(`${period.from}T12:00:00`))} – ${fmt(lastDay)}`;
 }

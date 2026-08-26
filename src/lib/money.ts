@@ -1,4 +1,22 @@
+import { DEFAULT_LOCALE, type Locale } from "./i18n/config";
 import { RATE_CODES, type CurrentRates, type RateCode } from "./rates";
+
+/**
+ * Język interfejsu na znacznik BCP 47 dla `Intl`.
+ *
+ * Sam kod języka nie wystarczy: „de" bez regionu daje inny format daty niż
+ * „de-DE", a przy walutach różnicę widać w miejscu symbolu i separatorach.
+ */
+const INTL_LOCALE: Record<Locale, string> = {
+  pl: "pl-PL",
+  de: "de-DE",
+  uk: "uk-UA",
+  en: "en-GB",
+};
+
+export function intlLocale(locale: Locale = DEFAULT_LOCALE): string {
+  return INTL_LOCALE[locale] ?? INTL_LOCALE[DEFAULT_LOCALE];
+}
 
 /**
  * Waluta kwoty — zapisu w bazie i wyświetlania.
@@ -49,8 +67,12 @@ export function toDisplayAmount(
   return inPln / toRate;
 }
 
-export function formatMoney(amount: number, currency: Currency): string {
-  return new Intl.NumberFormat("pl-PL", {
+export function formatMoney(
+  amount: number,
+  currency: Currency,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
+  return new Intl.NumberFormat(intlLocale(locale), {
     style: "currency",
     currency,
     maximumFractionDigits: 2,
@@ -92,8 +114,8 @@ export function hoursBetween(start: string, end: string): number {
   return diff / 60;
 }
 
-export function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString("pl-PL", {
+export function formatDateTime(value: string, locale: Locale = DEFAULT_LOCALE): string {
+  return new Date(value).toLocaleString(intlLocale(locale), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -102,8 +124,8 @@ export function formatDateTime(value: string): string {
   });
 }
 
-export function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("pl-PL", {
+export function formatDate(value: string, locale: Locale = DEFAULT_LOCALE): string {
+  return new Date(value).toLocaleDateString(intlLocale(locale), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",

@@ -1,6 +1,7 @@
 "use client";
 
-import { tripLabel } from "@/lib/trip-summary";
+import { useT } from "@/components/locale-provider";
+import { useFormat } from "@/components/use-format";
 import type { Trip } from "@/lib/types";
 
 /**
@@ -11,7 +12,7 @@ export function TripSelect({
   trips,
   value,
   onChange,
-  label = "Podróż",
+  label,
   name = "trip_id",
 }: {
   trips: Trip[];
@@ -20,26 +21,27 @@ export function TripSelect({
   label?: string;
   name?: string;
 }) {
+  const t = useT();
+  const fmt = useFormat();
+
   return (
     <div className="min-w-0 space-y-2">
-      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm text-muted-foreground">{label ?? t("common.trip")}</span>
       <select
         name={name}
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value || null)}
         className="input-field"
       >
-        <option value="">Bez przypisania</option>
+        <option value="">{t("common.noTrip")}</option>
         {trips.map((trip) => (
           <option key={trip.id} value={trip.id}>
-            {tripLabel(trip)}
+            {fmt.trip(trip)}
           </option>
         ))}
       </select>
       {trips.length === 0 && (
-        <p className="text-xs text-muted-foreground">
-          Najpierw dodaj podróż w zakładce Podróże, żeby przypisywać do niej wpisy.
-        </p>
+        <p className="text-xs text-muted-foreground">{t("common.addTripFirst")}</p>
       )}
     </div>
   );

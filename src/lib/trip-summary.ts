@@ -1,3 +1,4 @@
+import { DEFAULT_LOCALE, type Locale } from "./i18n/config";
 import { formatDate, hoursBetween, toDisplayAmount, type Currency } from "./money";
 import type { CurrentRates } from "./rates";
 import type { Expense, Payout, Trip, WorkEntry } from "./types";
@@ -14,10 +15,20 @@ export const DEFAULT_EXPENSE_CATEGORIES = [
   "Inne",
 ] as const;
 
-/** Etykieta podróży używana w selectach i na listach. */
-export function tripLabel(trip: Pick<Trip, "departure_at" | "return_at">): string {
-  const from = formatDate(trip.departure_at);
-  const to = trip.return_at ? formatDate(trip.return_at) : "w toku";
+/**
+ * Etykieta podróży używana w selectach i na listach.
+ *
+ * Napis „w toku" przychodzi z zewnątrz, a nie ze słownika: ten moduł liczy
+ * i formatuje, a tłumaczeniem zajmuje się warstwa, która zna kontekst Reacta.
+ * Domyślny polski trzyma przy życiu wywołania serwerowe (eksport CSV).
+ */
+export function tripLabel(
+  trip: Pick<Trip, "departure_at" | "return_at">,
+  options: { locale?: Locale; ongoing?: string } = {},
+): string {
+  const locale = options.locale ?? DEFAULT_LOCALE;
+  const from = formatDate(trip.departure_at, locale);
+  const to = trip.return_at ? formatDate(trip.return_at, locale) : (options.ongoing ?? "w toku");
   return `${from} – ${to}`;
 }
 
@@ -57,6 +68,7 @@ export function totalsOf({
   payouts,
   display,
   rates,
+  locale,
 }: {
   workEntries: WorkEntry[];
   expenses: Expense[];
@@ -64,6 +76,8 @@ export function totalsOf({
   display: Currency;
   /** Bieżąca tabela NBP — używana tylko tam, gdzie wpis nie ma własnego kursu. */
   rates: CurrentRates | null;
+  /** Wpływa wyłącznie na kolejność kategorii — nazwy nadaje użytkownik. */
+  locale?: Locale;
 }) {
   const toDisplay = (row: { amount: number; currency: Currency; nbp_rate: number | null }) =>
     toDisplayAmount(Number(row.amount), row.currency, row.nbp_rate, display, rates);
@@ -75,7 +89,7 @@ export function totalsOf({
   // Kategorie bierzemy z samych kosztów, a nie ze stałej listy — dzięki temu
   // wpisy z kategorii już nieużywanej nie znikają z podsumowania.
   const categories = [...new Set(expenses.map((e) => e.category))].sort((a, b) =>
-    a.localeCompare(b, "pl"),
+    a.localeCompare(b, locale ?? DEFAULT_LOCALE),
   );
   const byCategory = categories
     .map((category) => ({
@@ -110,6 +124,7 @@ export function summarizeTrip({
   display,
   rates,
   now,
+  locale,
 }: {
   tripId: string;
   departureAt: string;
@@ -120,6 +135,7 @@ export function summarizeTrip({
   display: Currency;
   rates: CurrentRates | null;
   now: number;
+  locale?: Locale;
 }) {
   const start = new Date(departureAt).getTime();
   const end = returnAt ? new Date(returnAt).getTime() : now;
@@ -134,6 +150,7 @@ export function summarizeTrip({
     payouts: payoutsInTrip,
     display,
     rates,
+    locale,
   });
 
   const tripHours = Math.max(0, end - start) / 3_600_000;
