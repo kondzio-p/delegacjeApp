@@ -6,6 +6,7 @@ import { cache } from "react";
 
 import { getSessionUser } from "./auth";
 import { prisma } from "./db";
+import { DASHBOARD_PATH } from "./routes";
 import type { SessionUser } from "./types";
 
 /**
@@ -39,7 +40,7 @@ export type OwnerContext = {
  */
 export const requireOwner = cache(async (): Promise<OwnerContext> => {
   const user = await requireUser();
-  if (!user.is_owner) redirect("/");
+  if (!user.is_owner) redirect(DASHBOARD_PATH);
 
   const founded = await prisma.company.findUnique({
     where: { owner_id: user.id },

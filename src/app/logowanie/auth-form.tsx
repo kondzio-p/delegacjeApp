@@ -17,8 +17,8 @@ import type { ActionState } from "@/lib/types";
 const EMPTY: ActionState = {};
 const EMPTY_CODE: CodeState = {};
 
-export function AuthForm() {
-  const [mode, setMode] = useState<"login" | "register">("login");
+export function AuthForm({ initialMode = "login" }: { initialMode?: "login" | "register" }) {
+  const [mode, setMode] = useState<"login" | "register">(initialMode);
   const t = useT();
 
   return (

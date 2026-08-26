@@ -20,11 +20,12 @@ import { useEffect, useState, type ReactNode } from "react";
 import { LanguagePicker } from "@/components/language-picker";
 import { useT } from "@/components/locale-provider";
 import { logoutAction } from "@/lib/actions/auth";
+import { DASHBOARD_PATH } from "@/lib/routes";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import type { SessionUser } from "@/lib/types";
 
 const BASE_NAV = [
-  { href: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { href: DASHBOARD_PATH, labelKey: "nav.dashboard", icon: LayoutDashboard },
   { href: "/podroze", labelKey: "nav.trips", icon: Plane },
   { href: "/godziny", labelKey: "nav.hours", icon: Clock },
   { href: "/finanse", labelKey: "nav.finance", icon: Wallet },
@@ -40,7 +41,7 @@ const COMPANY_NAV = { href: "/firma", labelKey: "nav.company", icon: Building2 }
  * powłoka siedzi w layoucie i nie przeładowuje się przy zmianie widoku.
  */
 function titleKeyFor(pathname: string): TranslationKey {
-  if (pathname === "/") return "nav.dashboard";
+  if (pathname === DASHBOARD_PATH) return "nav.dashboard";
   if (pathname.startsWith("/podroze/")) return "title.tripDetail";
   if (pathname === "/podroze") return "nav.trips";
   if (pathname.startsWith("/godziny")) return "nav.hours";
@@ -130,7 +131,9 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {nav.map((item) => {
             const active =
-              item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+              item.href === DASHBOARD_PATH
+        ? pathname === DASHBOARD_PATH
+        : pathname.startsWith(item.href);
             return (
               <Link
                 key={item.href}
