@@ -56,51 +56,69 @@ function prefersReducedMotion(): boolean {
 /**
  * Liczba odliczana od zera, gdy wjedzie w kadr.
  *
- * Format bierzemy z `Intl`, żeby separator tysięcy i przecinek dziesiętny
- * zgadzały się z tym, co pokazuje aplikacja.
+ * Wartość końcowa jest w markupie od razu, a animacja tylko chwilowo ją
+ * podmienia. Odwrotna kolejność (start od zera, dorysowanie przez JS) sprawiała,
+ * że bez skryptów albo przy nieudanym pobraniu GSAP-a strona chwaliła się
+ * „0 zł zostało na rękę" — czyli kłamała w miejscu, które ma budować zaufanie.
+ *
+ * `text` podajemy gotowe zamiast składać przez `Intl` po obu stronach, żeby
+ * serwer i przeglądarka nie mogły się rozejść na spacji nierozdzielającej
+ * i wywołać ostrzeżenia o niezgodnej hydracji.
  */
-function CountUp({ to, suffix = "" }: { to: number; suffix?: string }) {
+function CountUp({ to, text, suffix = "" }: { to: number; text: string; suffix?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const node = ref.current;
-    if (!node) return;
-
-    const format = (value: number) =>
-      new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(Math.round(value));
-
-    if (prefersReducedMotion()) {
-      node.textContent = format(to) + suffix;
-      return;
-    }
+    if (!node || prefersReducedMotion()) return;
 
     let cancelled = false;
+    let cleanup: (() => void) | undefined;
+
     void (async () => {
       const { gsap } = await import("gsap");
       const { ScrollTrigger } = await import("gsap/ScrollTrigger");
       if (cancelled) return;
       gsap.registerPlugin(ScrollTrigger);
 
+      const format = (value: number) =>
+        new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(Math.round(value));
+
       const counter = { value: 0 };
-      gsap.to(counter, {
+      const tween = gsap.to(counter, {
         value: to,
         duration: 1.4,
         ease: "power2.out",
         scrollTrigger: { trigger: node, start: "top 90%", once: true },
+        onStart: () => {
+          node.textContent = format(0) + suffix;
+        },
         onUpdate: () => {
           node.textContent = format(counter.value) + suffix;
         },
+        // Na koniec wracamy do napisu z serwera, żeby ostatnie słowo miał
+        // zawsze ten sam tekst, niezależnie od zaokrągleń po drodze.
+        onComplete: () => {
+          node.textContent = text;
+        },
       });
+
+      cleanup = () => {
+        tween.scrollTrigger?.kill();
+        tween.kill();
+        node.textContent = text;
+      };
     })();
 
     return () => {
       cancelled = true;
+      cleanup?.();
     };
-  }, [to, suffix]);
+  }, [to, text, suffix]);
 
   return (
     <span ref={ref} className="tabular-nums">
-      0{suffix}
+      {text}
     </span>
   );
 }
@@ -388,9 +406,18 @@ export function LandingScreen() {
             className="mx-auto mt-12 grid w-full max-w-2xl grid-cols-3 gap-3 rounded-2xl border border-border bg-card p-4 sm:gap-6 sm:p-6"
           >
             {[
-              { value: <CountUp to={171} suffix=" h" />, label: "przepracowanych godzin" },
-              { value: <CountUp to={14242} suffix=" zł" />, label: "wypłat z wyjazdu" },
-              { value: <CountUp to={9916} suffix=" zł" />, label: "zostało na rękę" },
+              {
+                value: <CountUp to={171} text="171 h" suffix=" h" />,
+                label: "przepracowanych godzin",
+              },
+              {
+                value: <CountUp to={14242} text="14 242 zł" suffix=" zł" />,
+                label: "wypłat z wyjazdu",
+              },
+              {
+                value: <CountUp to={9916} text="9 916 zł" suffix=" zł" />,
+                label: "zostało na rękę",
+              },
             ].map((item) => (
               <div key={item.label} className="min-w-0">
                 <p className="text-lg font-bold tabular-nums text-primary sm:text-2xl">
