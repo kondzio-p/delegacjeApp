@@ -59,9 +59,13 @@ export function formatMoney(amount: number, currency: Currency): string {
 
 export function formatHours(hours: number): string {
   if (!Number.isFinite(hours) || hours <= 0) return "0 h";
-  const h = Math.floor(hours);
-  const m = Math.round((hours - h) * 60);
-  return `${h} h ${String(m).padStart(2, "0")} min`;
+
+  // Najpierw zaokrąglamy do pełnych minut, dopiero potem dzielimy na godziny.
+  // Odwrotna kolejność dawała „7 h 60 min", bo suma wielu wpisów potrafi wyjść
+  // jako 7,999999999999999 — wtedy część całkowita to 7, a reszta zaokrągla się
+  // do pełnych sześćdziesięciu minut.
+  const total = Math.round(hours * 60);
+  return `${Math.floor(total / 60)} h ${String(total % 60).padStart(2, "0")} min`;
 }
 
 export function formatDuration(ms: number): {
