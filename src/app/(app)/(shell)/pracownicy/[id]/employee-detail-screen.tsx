@@ -15,9 +15,11 @@ import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { useT } from "@/components/locale-provider";
 import { useRates } from "@/components/rates-provider";
 import { StatCard } from "@/components/trip-summary-view";
 import { useAction } from "@/components/use-action";
+import { useFormat } from "@/components/use-format";
 import { EmptyState, Field, FormMessage, Modal } from "@/components/ui";
 import { resetEmployeePasswordAction, type ResetPasswordState } from "@/lib/actions/company";
 import {
@@ -25,9 +27,8 @@ import {
   deleteWorkEntryAction,
   updateWorkEntryAction,
 } from "@/lib/actions/data";
-import { formatDate, formatDateTime, formatHours, formatMoney, hoursBetween, toDisplayAmount } from "@/lib/money";
+import { formatHours, hoursBetween, toDisplayAmount } from "@/lib/money";
 import { printDocument } from "@/lib/print";
-import { tripLabel } from "@/lib/trip-summary";
 import type { Payout, Trip, WorkEntry } from "@/lib/types";
 
 const ALL_MONTHS = "all";
@@ -38,13 +39,6 @@ function monthKeyOfEntry(entry: WorkEntry): string {
   return entry.work_date.slice(0, 7);
 }
 
-function monthName(monthKey: string): string {
-  const [year, month] = monthKey.split("-").map(Number);
-  return new Date(year ?? 1970, (month ?? 1) - 1, 1).toLocaleDateString("pl-PL", {
-    month: "long",
-    year: "numeric",
-  });
-}
 
 export function EmployeeDetailScreen({
   employee,
@@ -57,6 +51,8 @@ export function EmployeeDetailScreen({
   trips: Trip[];
   payouts: Payout[];
 }) {
+  const t = useT();
+  const fmt = useFormat();
   const [month, setMonth] = useState<string>(ALL_MONTHS);
   const [editing, setEditing] = useState<WorkEntry | null>(null);
   const [adding, setAdding] = useState(false);
@@ -106,12 +102,12 @@ export function EmployeeDetailScreen({
           href="/pracownicy"
           className="flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-card px-4 text-sm font-semibold active:bg-secondary"
         >
-          <ArrowLeft className="h-5 w-5 shrink-0" /> Wróć do zespołu
+          <ArrowLeft className="h-5 w-5 shrink-0" /> {t("employee.back")}
         </Link>
         <button
           type="button"
           onClick={() => printDocument(`Godziny_${employee.name}`)}
-          aria-label="Eksportuj do PDF"
+          aria-label={t("tripDetail.exportPdf")}
           className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-card px-4 text-sm font-semibold active:bg-secondary"
         >
           <FileDown className="h-5 w-5 shrink-0" /> PDF
@@ -120,10 +116,12 @@ export function EmployeeDetailScreen({
 
       {/* Nagłówek widoczny wyłącznie w PDF/na wydruku. */}
       <div className="print-only mb-4">
-        <h1 className="text-xl font-bold">Godziny pracy — {employee.name}</h1>
+        <h1 className="text-xl font-bold">
+          {t("employee.printTitle", { name: employee.name })}
+        </h1>
         <p className="text-sm">
-          {month === ALL_MONTHS ? "Wszystkie wpisy" : monthName(month)} · razem{" "}
-          {formatHours(totalHours)}
+          {month === ALL_MONTHS ? t("employee.allEntries") : fmt.month(month)} ·{" "}
+          {t("employee.totalIs", { hours: formatHours(totalHours) })}
         </p>
       </div>
 
@@ -134,7 +132,7 @@ export function EmployeeDetailScreen({
 
       <section className="no-print mt-4 rounded-2xl bg-card p-4">
         <label className="block text-sm font-medium text-muted-foreground" htmlFor="month">
-          Miesiąc
+          {t("employees.month")}
         </label>
         <select
           id="month"
@@ -142,10 +140,10 @@ export function EmployeeDetailScreen({
           onChange={(e) => setMonth(e.target.value)}
           className="input-field mt-2"
         >
-          <option value={ALL_MONTHS}>Wszystkie miesiące</option>
+          <option value={ALL_MONTHS}>{t("employee.allMonths")}</option>
           {months.map((key) => (
             <option key={key} value={key}>
-              {monthName(key)}
+              {fmt.month(key)}
             </option>
           ))}
         </select>
@@ -154,7 +152,11 @@ export function EmployeeDetailScreen({
       <section className="mt-4">
         <StatCard
           icon={<Clock className="h-5 w-5 text-primary" />}
-          label={month === ALL_MONTHS ? "Godziny łącznie" : `Godziny — ${monthName(month)}`}
+          label={
+            month === ALL_MONTHS
+              ? t("employee.hoursTotal")
+              : t("employee.hoursInMonth", { month: fmt.month(month) })
+          }
           value={formatHours(totalHours)}
         />
       </section>
@@ -167,14 +169,14 @@ export function EmployeeDetailScreen({
           onClick={() => setAdding(true)}
           className="flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground"
         >
-          <Plus className="h-4 w-4 shrink-0" /> Dodaj wpis
+          <Plus className="h-4 w-4 shrink-0" /> {t("employee.addEntry")}
         </button>
         <button
           type="button"
           onClick={() => setResetOpen(true)}
           className="flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-secondary text-sm font-semibold"
         >
-          <KeyRound className="h-4 w-4 shrink-0" /> Reset hasła
+          <KeyRound className="h-4 w-4 shrink-0" /> {t("employee.resetPassword")}
         </button>
       </div>
 
@@ -182,8 +184,8 @@ export function EmployeeDetailScreen({
         <div className="mt-4">
           <EmptyState>
             {entries.length === 0
-              ? "Ten pracownik nie zapisał jeszcze żadnych godzin."
-              : "Brak wpisów w wybranym miesiącu."}
+              ? t("employee.noEntriesAtAll")
+              : t("employee.noEntriesInMonth")}
           </EmptyState>
         </div>
       ) : (
@@ -191,8 +193,8 @@ export function EmployeeDetailScreen({
           {groups.tripGroups.map(({ trip, entries: tripEntries }) => (
             <EntryGroup
               key={trip.id}
-              title={tripLabel(trip)}
-              subtitle="wyjazd"
+              title={fmt.trip(trip)}
+              subtitle={t("employee.tripGroup")}
               entries={tripEntries}
               employeeId={employee.id}
               onEdit={setEditing}
@@ -201,7 +203,7 @@ export function EmployeeDetailScreen({
 
           {groups.unassigned.length > 0 && (
             <EntryGroup
-              title="Bez przypisania do wyjazdu"
+              title={t("employee.unassignedGroup")}
               entries={groups.unassigned}
               employeeId={employee.id}
               onEdit={setEditing}
@@ -212,7 +214,7 @@ export function EmployeeDetailScreen({
 
       {adding && (
         <EntryFormModal
-          title="Dodaj wpis godzin"
+          title={t("employee.addEntryTitle")}
           employeeId={employee.id}
           trips={trips}
           onClose={() => setAdding(false)}
@@ -221,7 +223,7 @@ export function EmployeeDetailScreen({
 
       {editing && (
         <EntryFormModal
-          title="Edytuj wpis godzin"
+          title={t("employee.editEntryTitle")}
           employeeId={employee.id}
           trips={trips}
           entry={editing}
@@ -241,6 +243,8 @@ export function EmployeeDetailScreen({
  * które pracownik ponosi z własnej kieszeni i które zostają prywatne.
  */
 function PayoutsSection({ payouts, month }: { payouts: Payout[]; month: string }) {
+  const t = useT();
+  const fmt = useFormat();
   const rates = useRates();
 
   const visible = useMemo(
@@ -262,16 +266,18 @@ function PayoutsSection({ payouts, month }: { payouts: Payout[]; month: string }
       <div className="flex items-center gap-2">
         <Wallet className="h-5 w-5 shrink-0 text-success" />
         <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Wypłaty {month === ALL_MONTHS ? "łącznie" : `— ${monthName(month)}`}
+          {month === ALL_MONTHS
+            ? t("employee.payoutsTotal")
+            : t("employee.payoutsInMonth", { month: fmt.month(month) })}
         </h2>
       </div>
 
       <p className="mt-3 break-words text-lg font-bold tabular-nums text-success">
-        {formatMoney(totalPln, "PLN")}
+        {fmt.money(totalPln, "PLN")}
       </p>
 
       {visible.length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">Brak wypłat w tym okresie.</p>
+        <p className="mt-2 text-sm text-muted-foreground">{t("employee.noPayouts")}</p>
       ) : (
         <ul className="mt-3 space-y-2">
           {visible.map((payout) => (
@@ -280,13 +286,13 @@ function PayoutsSection({ payouts, month }: { payouts: Payout[]; month: string }
               className="flex items-center justify-between gap-3 rounded-xl bg-secondary px-4 py-2"
             >
               <span className="min-w-0 flex-1 truncate text-sm">
-                {payout.note?.trim() || "Wypłata"}
+                {payout.note?.trim() || t("finance.payout")}
                 <span className="block text-xs text-muted-foreground">
-                  {formatDateTime(payout.paid_at)}
+                  {fmt.date(payout.paid_at)}
                 </span>
               </span>
               <span className="shrink-0 text-sm font-semibold tabular-nums text-success">
-                {formatMoney(payout.amount, payout.currency)}
+                {fmt.money(payout.amount, payout.currency)}
               </span>
             </li>
           ))}
@@ -309,6 +315,8 @@ function EntryGroup({
   employeeId: string;
   onEdit: (entry: WorkEntry) => void;
 }) {
+  const t = useT();
+  const fmt = useFormat();
   const hours = entries.reduce((s, e) => s + hoursBetween(e.start_time, e.end_time), 0);
 
   return (
@@ -337,7 +345,7 @@ function EntryGroup({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">
-                  {formatDate(entry.work_date)} · {entry.start_time}–{entry.end_time}
+                  {fmt.date(entry.work_date)} · {entry.start_time}–{entry.end_time}
                 </p>
                 <p className="truncate text-sm text-muted-foreground">
                   {formatHours(entryHours)}
@@ -346,7 +354,7 @@ function EntryGroup({
               <button
                 type="button"
                 onClick={() => onEdit(entry)}
-                aria-label="Edytuj wpis"
+                aria-label={t("employee.editEntry")}
                 className="no-print flex h-11 w-11 shrink-0 items-center justify-center rounded-xl active:bg-secondary"
               >
                 <Pencil className="h-5 w-5 text-muted-foreground" />
@@ -392,6 +400,8 @@ function EntryFormModal({
   entry?: WorkEntry;
   onClose: () => void;
 }) {
+  const t = useT();
+  const fmt = useFormat();
   const action = entry ? updateWorkEntryAction : createWorkEntryAction;
   const [state, formAction, pending] = useAction(action, { onSuccess: onClose });
 
@@ -401,22 +411,22 @@ function EntryFormModal({
         <input type="hidden" name="employee_id" value={employeeId} />
         {entry && <input type="hidden" name="id" value={entry.id} />}
 
-        <Field label="Wyjazd">
+        <Field label={t("employee.trip")}>
           <select
             name="trip_id"
             defaultValue={entry?.trip_id ?? ""}
             className="input-field"
           >
-            <option value="">Bez przypisania</option>
+            <option value="">{t("common.noTrip")}</option>
             {trips.map((trip) => (
               <option key={trip.id} value={trip.id}>
-                {tripLabel(trip)}
+                {fmt.trip(trip)}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Data">
+        <Field label={t("common.date")}>
           <input
             type="date"
             name="work_date"
@@ -427,7 +437,7 @@ function EntryFormModal({
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Od">
+          <Field label={t("common.from")}>
             <input
               type="time"
               name="start_time"
@@ -436,7 +446,7 @@ function EntryFormModal({
               className="input-field input-field-compact"
             />
           </Field>
-          <Field label="Do">
+          <Field label={t("common.to")}>
             <input
               type="time"
               name="end_time"
@@ -454,7 +464,7 @@ function EntryFormModal({
           disabled={pending}
           className="flex h-14 w-full items-center justify-center rounded-xl bg-primary text-base font-semibold text-primary-foreground disabled:opacity-60"
         >
-          {entry ? "Zapisz wpis" : "Dodaj wpis"}
+          {entry ? t("employee.saveEntry") : t("employee.addEntry")}
         </button>
       </form>
     </Modal>
@@ -470,24 +480,24 @@ function ResetPasswordModal({
   employee: Employee;
   onClose: () => void;
 }) {
+  const t = useT();
   const [state, formAction, pending] = useActionState(resetEmployeePasswordAction, EMPTY_RESET);
 
   async function copy(password: string) {
     try {
       await navigator.clipboard.writeText(password);
-      toast.success("Hasło skopiowane do schowka");
+      toast.success(t("reset.copied"));
     } catch {
-      toast.error("Nie udało się skopiować — przepisz hasło ręcznie");
+      toast.error(t("reset.copyFailed"));
     }
   }
 
   return (
-    <Modal title="Reset hasła pracownika" onClose={onClose}>
+    <Modal title={t("reset.title")} onClose={onClose}>
       {state.password ? (
         <>
           <p className="text-sm text-muted-foreground">
-            Nowe hasło dla <span className="font-semibold text-foreground">{employee.name}</span> (
-            {employee.email}). Przekaż je pracownikowi — po zalogowaniu powinien ustawić własne w Ustawieniach.
+            {t("reset.newPassword", { name: employee.name, email: employee.email })}
           </p>
           <p className="rounded-xl bg-secondary p-4 text-center font-mono text-2xl font-bold tracking-widest">
             {state.password}
@@ -497,30 +507,27 @@ function ResetPasswordModal({
             onClick={() => copy(state.password as string)}
             className="flex h-12 w-full items-center justify-center rounded-xl bg-secondary text-sm font-semibold"
           >
-            Kopiuj hasło
+            {t("reset.copy")}
           </button>
           <button
             type="button"
             onClick={onClose}
             className="flex h-14 w-full items-center justify-center rounded-xl bg-primary text-base font-semibold text-primary-foreground"
           >
-            Gotowe
+            {t("reset.done")}
           </button>
         </>
       ) : (
         <form action={formAction} className="space-y-4">
           <input type="hidden" name="user_id" value={employee.id} />
-          <p className="text-sm text-muted-foreground">
-            Wygenerujemy losowe 7-literowe hasło i pokażemy je tylko raz. Dotychczasowe hasło
-            pracownika przestanie działać, a jego sesje zostaną zamknięte.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("reset.warning")}</p>
           <FormMessage error={state.error} />
           <button
             type="submit"
             disabled={pending}
             className="flex h-14 w-full items-center justify-center rounded-xl bg-destructive text-base font-semibold text-destructive-foreground disabled:opacity-60"
           >
-            Zresetuj hasło
+            {t("reset.submit")}
           </button>
         </form>
       )}

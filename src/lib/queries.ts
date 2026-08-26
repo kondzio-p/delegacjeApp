@@ -238,13 +238,6 @@ export function monthRange(monthKey: string): { from: string; to: string } {
   return { from: `${y}-${pad(m)}-01`, to: `${nextY}-${pad(nextM)}-01` };
 }
 
-export function monthLabel(monthKey: string): string {
-  const [year, month] = monthKey.split("-").map(Number);
-  return new Date(year ?? 1970, (month ?? 1) - 1, 1).toLocaleDateString("pl-PL", {
-    month: "long",
-    year: "numeric",
-  });
-}
 
 /* ------------------------------------------------------ raport dla firmy */
 

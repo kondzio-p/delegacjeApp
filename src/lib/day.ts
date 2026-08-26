@@ -1,3 +1,6 @@
+import { DEFAULT_LOCALE, type Locale } from "./i18n/config";
+import { intlLocale } from "./money";
+
 // Zamiana między dniem z formularza ("YYYY-MM-DD") a momentem w kolumnie
 // `timestamptz`. Osobny moduł, bo korzystają z tego i akcje serwerowe, i ekran
 // finansów — a z pliku "use server" nie da się wyeksportować zwykłej funkcji.
@@ -29,4 +32,18 @@ export function momentToDay(moment: Date | string): string {
 export function todayLocal(now = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/**
+ * Nazwa miesiąca z klucza „YYYY-MM" — „sierpień 2026".
+ *
+ * Dzień ustawiamy na pierwszy, bo klucz go nie niesie; `Intl` i tak pokazuje
+ * tylko miesiąc i rok.
+ */
+export function monthLabel(monthKey: string, locale: Locale = DEFAULT_LOCALE): string {
+  const [year, month] = monthKey.split("-").map(Number);
+  return new Date(year ?? 1970, (month ?? 1) - 1, 1).toLocaleDateString(intlLocale(locale), {
+    month: "long",
+    year: "numeric",
+  });
 }

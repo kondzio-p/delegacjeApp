@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 
 import { useLocale } from "@/components/locale-provider";
+import { monthLabel } from "@/lib/day";
 import { formatDate, formatDateTime, formatMoney, type Currency } from "@/lib/money";
 import { periodLabel, type Period } from "@/lib/period";
 import { tripLabel } from "@/lib/trip-summary";
@@ -25,6 +26,7 @@ export function useFormat() {
       date: (value: string) => formatDate(value, locale),
       dateTime: (value: string) => formatDateTime(value, locale),
       period: (period: Period) => periodLabel(period, locale),
+      month: (monthKey: string) => monthLabel(monthKey, locale),
       trip: (trip: Pick<Trip, "departure_at" | "return_at">) =>
         tripLabel(trip, { locale, ongoing: t("common.ongoing") }),
     }),

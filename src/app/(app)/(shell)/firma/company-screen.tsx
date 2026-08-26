@@ -13,11 +13,13 @@ import {
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { useT } from "@/components/locale-provider";
 import { StatCard } from "@/components/trip-summary-view";
+import { useFormat } from "@/components/use-format";
 import { Field, Modal } from "@/components/ui";
 import { csvAmount, toCsv } from "@/lib/csv";
 import { formatHours } from "@/lib/money";
-import { lastMonth, periodLabel, thisMonth, type Period } from "@/lib/period";
+import { lastMonth, thisMonth, type Period } from "@/lib/period";
 import { downloadFile, isoDay, printDocument } from "@/lib/print";
 import type { PayrollRow } from "@/lib/queries";
 import { RATE_CODES, rateToPln, type CurrentRates, type RateCode } from "@/lib/rates";
@@ -26,8 +28,8 @@ import type { CompanyRole } from "@/lib/session";
 /** Wiersz raportu po ewentualnej ręcznej korekcie w podglądzie. */
 type EditedRow = { hours: string; paid: string };
 
-function money(value: number, code: RateCode): string {
-  return `${value.toLocaleString("pl-PL", {
+function money(value: number, code: RateCode, locale: string): string {
+  return `${value.toLocaleString(locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} ${code}`;
@@ -48,6 +50,8 @@ export function CompanyScreen({
   rates: CurrentRates | null;
   onTripCount: number;
 }) {
+  const t = useT();
+  const fmt = useFormat();
   const router = useRouter();
   const [reportOpen, setReportOpen] = useState(false);
 
@@ -70,7 +74,7 @@ export function CompanyScreen({
           <h2 className="min-w-0 truncate text-lg font-semibold">{companyName}</h2>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          {role === "founder" ? "Jesteś założycielem" : "Jesteś współwłaścicielem"}
+          {role === "founder" ? t("company.founder") : t("company.coOwner")}
         </p>
       </section>
 
@@ -79,12 +83,12 @@ export function CompanyScreen({
       <section className="mt-4 grid grid-cols-1 gap-3">
         <StatCard
           icon={<Wallet className="h-5 w-5 text-success" />}
-          label={`Wypłaty w okresie · ${periodLabel(period)}`}
-          value={money(totals.paid, "PLN")}
+          label={t("company.payoutsInPeriod", { period: fmt.period(period) })}
+          value={money(totals.paid, "PLN", fmt.locale)}
         />
         <StatCard
           icon={<Clock className="h-5 w-5 text-primary" />}
-          label="Łączne godziny zespołu"
+          label={t("company.teamHours")}
           value={formatHours(totals.hours)}
         />
       </section>
@@ -92,19 +96,19 @@ export function CompanyScreen({
       <section className="mt-3 grid grid-cols-2 gap-3">
         <StatCard
           icon={<Users className="h-5 w-5 text-primary" />}
-          label="Pracownicy"
+          label={t("company.employees")}
           value={String(rows.length)}
         />
         <StatCard
           icon={<Plane className="h-5 w-5 text-accent" />}
-          label="Na wyjeździe"
+          label={t("company.onTrip")}
           value={String(onTripCount)}
         />
         <div className="col-span-2 min-w-0">
           <StatCard
             icon={<Wallet className="h-5 w-5 text-accent" />}
-            label="Średnio za godzinę pracy zespołu"
-            value={money(totals.hours > 0 ? totals.paid / totals.hours : 0, "PLN")}
+            label={t("company.avgHourly")}
+            value={money(totals.hours > 0 ? totals.paid / totals.hours : 0, "PLN", fmt.locale)}
           />
         </div>
       </section>
@@ -114,7 +118,7 @@ export function CompanyScreen({
         onClick={() => setReportOpen(true)}
         className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary text-base font-semibold text-primary-foreground"
       >
-        <FileDown className="h-5 w-5 shrink-0" /> Raport dla księgowej
+        <FileDown className="h-5 w-5 shrink-0" /> {t("company.report")}
       </button>
 
       {reportOpen && (
@@ -137,9 +141,10 @@ function PeriodPicker({
   period: Period;
   onChange: (period: Period) => void;
 }) {
+  const t = useT();
   const presets = [
-    { label: "Ten miesiąc", value: thisMonth() },
-    { label: "Poprzedni miesiąc", value: lastMonth() },
+    { label: t("company.thisMonth"), value: thisMonth() },
+    { label: t("company.lastMonth"), value: lastMonth() },
   ];
 
   // `to` jest otwarte, a pole daty pokazuje ostatni dzień włącznie.
@@ -172,7 +177,7 @@ function PeriodPicker({
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-3">
-        <Field label="Od">
+        <Field label={t("common.from")}>
           <input
             type="date"
             value={period.from}
@@ -182,7 +187,7 @@ function PeriodPicker({
             className="input-field input-field-compact"
           />
         </Field>
-        <Field label="Do (włącznie)">
+        <Field label={t("company.toInclusive")}>
           <input
             type="date"
             value={lastDayValue}
@@ -220,6 +225,8 @@ function ReportDialog({
   rates: CurrentRates | null;
   onClose: () => void;
 }) {
+  const t = useT();
+  const fmt = useFormat();
   const [currency, setCurrency] = useState<RateCode>("PLN");
   const [edits, setEdits] = useState<Record<string, EditedRow>>({});
 
@@ -252,11 +259,20 @@ function ReportDialog({
    */
   const pobierzCsv = () => {
     const csv = toCsv(view, [
-      { header: "Pracownik", value: (row) => row.name },
-      { header: "Godziny", value: (row) => csvAmount(row.hours) },
-      { header: `Wypłacono (${currency})`, value: (row) => csvAmount(row.amount) },
-      { header: "Skorygowano ręcznie", value: (row) => (row.touched ? "tak" : "") },
-      { header: "Konto usunięte", value: (row) => (row.isDeleted ? "tak" : "") },
+      { header: t("company.colEmployee"), value: (row) => row.name },
+      { header: t("company.hours"), value: (row) => csvAmount(row.hours) },
+      {
+        header: t("company.paidOutIn", { currency }),
+        value: (row) => csvAmount(row.amount),
+      },
+      {
+        header: t("company.csvCorrected"),
+        value: (row) => (row.touched ? t("company.csvYes") : ""),
+      },
+      {
+        header: t("company.csvDeleted"),
+        value: (row) => (row.isDeleted ? t("company.csvYes") : ""),
+      },
     ]);
 
     downloadFile(`Raport_${companyName}_${period.from}.csv`, csv, "text/csv;charset=utf-8");
@@ -272,14 +288,13 @@ function ReportDialog({
     }));
 
   return (
-    <Modal title="Raport dla księgowej" onClose={onClose}>
+    <Modal title={t("company.report")} onClose={onClose}>
       <div className="no-print space-y-4">
         <p className="rounded-xl bg-secondary px-4 py-3 text-xs text-muted-foreground">
-          Sprawdź liczby przed wygenerowaniem. Możesz je poprawić — <strong>zmiany dotyczą
-          tylko tego dokumentu</strong> i nie zapisują się w aplikacji.
+          {t("company.reportHint")} <strong>{t("company.reportHintStrong")}</strong>
         </p>
 
-        <Field label="Waluta raportu">
+        <Field label={t("company.reportCurrency")}>
           <select
             value={currency}
             onChange={(e) => {
@@ -300,7 +315,7 @@ function ReportDialog({
         <div className="space-y-2">
           {view.length === 0 && (
             <p className="rounded-xl bg-secondary px-4 py-3 text-sm text-muted-foreground">
-              Brak pracowników w firmie.
+              {t("company.noEmployees")}
             </p>
           )}
           {view.map((row) => (
@@ -314,13 +329,13 @@ function ReportDialog({
                 {row.name}
                 {row.isDeleted && (
                   <span className="ml-2 text-xs font-normal text-muted-foreground">
-                    (konto usunięte)
+                    {t("company.deletedAccount")}
                   </span>
                 )}
               </p>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <label className="min-w-0 text-xs text-muted-foreground">
-                  Godziny
+                  {t("company.hours")}
                   <input
                     inputMode="decimal"
                     value={edits[row.id]?.hours ?? row.hours.toFixed(2)}
@@ -329,7 +344,7 @@ function ReportDialog({
                   />
                 </label>
                 <label className="min-w-0 text-xs text-muted-foreground">
-                  Wypłacono ({currency})
+                  {t("company.paidOutIn", { currency })}
                   <input
                     inputMode="decimal"
                     value={edits[row.id]?.paid ?? row.amount.toFixed(2)}
@@ -343,11 +358,11 @@ function ReportDialog({
         </div>
 
         <div className="flex items-center justify-between gap-3 rounded-xl bg-card px-4 py-3 text-sm">
-          <span className="font-semibold">Razem</span>
+          <span className="font-semibold">{t("company.total")}</span>
           <span className="text-right tabular-nums">
             {totalHours.toFixed(2)} h
             <span className="block text-xs text-muted-foreground">
-              {money(totalAmount, currency)}
+              {money(totalAmount, currency, fmt.locale)}
             </span>
           </span>
         </div>
@@ -359,7 +374,7 @@ function ReportDialog({
             disabled={Object.keys(edits).length === 0}
             className="flex h-12 min-w-0 items-center justify-center gap-2 rounded-xl bg-secondary px-4 text-sm font-semibold disabled:opacity-50"
           >
-            <RotateCcw className="h-4 w-4 shrink-0" /> Przywróć
+            <RotateCcw className="h-4 w-4 shrink-0" /> {t("company.restore")}
           </button>
           <button
             type="button"
@@ -373,30 +388,35 @@ function ReportDialog({
             onClick={() => printDocument(`Raport_${companyName}_${period.from}`)}
             className="flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground"
           >
-            <FileDown className="h-4 w-4 shrink-0" /> Generuj PDF
+            <FileDown className="h-4 w-4 shrink-0" /> {t("company.generatePdf")}
           </button>
         </div>
       </div>
 
       {/* Dokument do druku — bez znaczników korekty, ma być czysty. */}
       <div className="print-only">
-        <h1 className="text-xl font-bold">Zestawienie wynagrodzeń</h1>
+        <h1 className="text-xl font-bold">{t("company.printTitle")}</h1>
         <p className="mt-1 text-sm">{companyName}</p>
-        <p className="text-sm">Okres: {periodLabel(period)}</p>
-        <p className="text-sm">Wygenerowano: {new Date().toLocaleDateString("pl-PL")}</p>
+        <p className="text-sm">{t("company.printPeriod", { period: fmt.period(period) })}</p>
         <p className="text-sm">
-          Waluta: {currency}
+          {t("company.printGenerated", { date: fmt.date(new Date().toISOString()) })}
+        </p>
+        <p className="text-sm">
+          {t("company.printCurrency", { currency })}
           {currency !== "PLN" && rates
-            ? ` · kurs NBP ${targetRate.toFixed(4)} z dnia ${rates.effectiveDate}`
+            ? t("company.printRate", {
+                rate: targetRate.toFixed(4),
+                date: rates.effectiveDate,
+              })
             : ""}
         </p>
 
         <table className="mt-4 w-full text-sm">
           <thead>
             <tr className="border-b border-black text-left">
-              <th className="py-1">Pracownik</th>
-              <th className="py-1 text-right">Godziny</th>
-              <th className="py-1 text-right">Wypłacono</th>
+              <th className="py-1">{t("company.colEmployee")}</th>
+              <th className="py-1 text-right">{t("company.hours")}</th>
+              <th className="py-1 text-right">{t("company.colPaidOut")}</th>
             </tr>
           </thead>
           <tbody>
@@ -404,15 +424,19 @@ function ReportDialog({
               <tr key={row.id} className="border-b border-neutral-300">
                 <td className="py-1">{row.name}</td>
                 <td className="py-1 text-right tabular-nums">{row.hours.toFixed(2)}</td>
-                <td className="py-1 text-right tabular-nums">{money(row.amount, currency)}</td>
+                <td className="py-1 text-right tabular-nums">
+                  {money(row.amount, currency, fmt.locale)}
+                </td>
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr className="font-bold">
-              <td className="py-2">Razem</td>
+              <td className="py-2">{t("company.total")}</td>
               <td className="py-2 text-right tabular-nums">{totalHours.toFixed(2)}</td>
-              <td className="py-2 text-right tabular-nums">{money(totalAmount, currency)}</td>
+              <td className="py-2 text-right tabular-nums">
+                {money(totalAmount, currency, fmt.locale)}
+              </td>
             </tr>
           </tfoot>
         </table>
