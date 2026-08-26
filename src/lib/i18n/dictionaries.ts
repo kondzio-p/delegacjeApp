@@ -80,6 +80,38 @@ const pl = {
 
   "summary.byCategory": "Koszty wg kategorii",
 
+  "ui.close": "Zamknij",
+
+  "recovery.title": "Zapisz kod odzyskiwania",
+  "recovery.confirm": "Zapisałem kod",
+  "recovery.warning": "To jedyny moment, w którym widzisz ten kod. Bez niego nie odzyskasz dostępu do konta po zapomnieniu hasła — zapisz go w bezpiecznym miejscu.",
+  "recovery.copy": "Kopiuj kod",
+  "recovery.copied": "Kod skopiowany do schowka",
+  "recovery.copyFailed": "Nie udało się skopiować — przepisz kod ręcznie",
+
+  "welcome.enter": "Przejdź do aplikacji",
+
+  "shared.title": "Podsumowanie wyjazdu",
+  "shared.readOnly": "Widok tylko do odczytu",
+  "shared.empty": "Brak wpisów przypisanych do tej podróży.",
+  "shared.savePdf": "Zapisz jako PDF",
+
+  "employees.company": "Firma",
+  "employees.companyHint": "Pracownik dołącza, wpisując tę nazwę w swoich ustawieniach. Widzisz jego godziny pracy i wypłaty — koszty, które ponosi sam, zostają prywatne.",
+  "employees.requests": "Prośby o dołączenie ({count})",
+  "employees.accept": "Akceptuj",
+  "employees.reject": "Odrzuć",
+  "employees.team": "Zespół ({count})",
+  "employees.month": "Miesiąc",
+  "employees.sort": "Sortuj",
+  "employees.sortName": "Alfabetycznie",
+  "employees.sortHours": "Wg godzin",
+  "employees.empty": "Nikt jeszcze nie dołączył. Podaj pracownikom dokładną nazwę firmy — wpisują ją w swoich ustawieniach.",
+  "employees.onTrip": "na wyjeździe",
+  "employees.atHome": "w kraju",
+  "employees.lastEntry": "Ostatni wpis: {when}",
+  "employees.noEntries": "Brak wpisów godzin",
+
   "summary.netProfit": "Czysty zysk",
   "summary.workEntries": "Godziny pracy w tej podróży",
   "summary.transactions": "Transakcje w tej podróży",
@@ -235,6 +267,38 @@ const de: Dict = {
 
   "summary.byCategory": "Kosten nach Kategorie",
 
+  "ui.close": "Schließen",
+
+  "recovery.title": "Wiederherstellungscode sichern",
+  "recovery.confirm": "Ich habe den Code gesichert",
+  "recovery.warning": "Das ist der einzige Moment, in dem du diesen Code siehst. Ohne ihn kommst du nach einem vergessenen Passwort nicht mehr an dein Konto — bewahre ihn sicher auf.",
+  "recovery.copy": "Code kopieren",
+  "recovery.copied": "Code in die Zwischenablage kopiert",
+  "recovery.copyFailed": "Kopieren fehlgeschlagen — schreibe den Code von Hand ab",
+
+  "welcome.enter": "Zur App",
+
+  "shared.title": "Reisezusammenfassung",
+  "shared.readOnly": "Nur-Lese-Ansicht",
+  "shared.empty": "Dieser Reise sind keine Einträge zugeordnet.",
+  "shared.savePdf": "Als PDF speichern",
+
+  "employees.company": "Firma",
+  "employees.companyHint": "Mitarbeitende treten bei, indem sie diesen Namen in ihren Einstellungen eintragen. Du siehst ihre Arbeitsstunden und Auszahlungen — die Kosten, die sie selbst tragen, bleiben privat.",
+  "employees.requests": "Beitrittsanfragen ({count})",
+  "employees.accept": "Annehmen",
+  "employees.reject": "Ablehnen",
+  "employees.team": "Team ({count})",
+  "employees.month": "Monat",
+  "employees.sort": "Sortieren",
+  "employees.sortName": "Alphabetisch",
+  "employees.sortHours": "Nach Stunden",
+  "employees.empty": "Es ist noch niemand beigetreten. Gib deinen Mitarbeitenden den genauen Firmennamen — sie tragen ihn in ihren Einstellungen ein.",
+  "employees.onTrip": "unterwegs",
+  "employees.atHome": "im Land",
+  "employees.lastEntry": "Letzter Eintrag: {when}",
+  "employees.noEntries": "Keine Stundeneinträge",
+
   "summary.netProfit": "Reingewinn",
   "summary.workEntries": "Arbeitsstunden auf dieser Reise",
   "summary.transactions": "Transaktionen auf dieser Reise",
@@ -388,6 +452,38 @@ const uk: Dict = {
 
   "summary.byCategory": "Витрати за категоріями",
 
+  "ui.close": "Закрити",
+
+  "recovery.title": "Збережіть код відновлення",
+  "recovery.confirm": "Я зберіг код",
+  "recovery.warning": "Це єдиний момент, коли ви бачите цей код. Без нього ви не відновите доступ до облікового запису після забутого пароля — збережіть його в безпечному місці.",
+  "recovery.copy": "Копіювати код",
+  "recovery.copied": "Код скопійовано",
+  "recovery.copyFailed": "Не вдалося скопіювати — перепишіть код вручну",
+
+  "welcome.enter": "Перейти до застосунку",
+
+  "shared.title": "Підсумок поїздки",
+  "shared.readOnly": "Перегляд лише для читання",
+  "shared.empty": "До цієї поїздки не прив'язано жодного запису.",
+  "shared.savePdf": "Зберегти як PDF",
+
+  "employees.company": "Компанія",
+  "employees.companyHint": "Працівник приєднується, вписавши цю назву у своїх налаштуваннях. Ви бачите його робочі години та виплати — витрати, які він несе сам, залишаються приватними.",
+  "employees.requests": "Запити на приєднання ({count})",
+  "employees.accept": "Прийняти",
+  "employees.reject": "Відхилити",
+  "employees.team": "Команда ({count})",
+  "employees.month": "Місяць",
+  "employees.sort": "Сортувати",
+  "employees.sortName": "За абеткою",
+  "employees.sortHours": "За годинами",
+  "employees.empty": "Ще ніхто не приєднався. Дайте працівникам точну назву компанії — вони вписують її у своїх налаштуваннях.",
+  "employees.onTrip": "у поїздці",
+  "employees.atHome": "удома",
+  "employees.lastEntry": "Останній запис: {when}",
+  "employees.noEntries": "Записів годин немає",
+
   "summary.netProfit": "Чистий прибуток",
   "summary.workEntries": "Робочі години в цій поїздці",
   "summary.transactions": "Операції в цій поїздці",
@@ -539,6 +635,38 @@ const en: Dict = {
   "rates.unavailableHint": "NBP is not responding. Try refreshing in a moment.",
 
   "summary.byCategory": "Costs by category",
+
+  "ui.close": "Close",
+
+  "recovery.title": "Save your recovery code",
+  "recovery.confirm": "I saved the code",
+  "recovery.warning": "This is the only time you will see this code. Without it you cannot recover your account after forgetting the password — keep it somewhere safe.",
+  "recovery.copy": "Copy the code",
+  "recovery.copied": "Code copied to the clipboard",
+  "recovery.copyFailed": "Copying failed — write the code down by hand",
+
+  "welcome.enter": "Go to the app",
+
+  "shared.title": "Trip summary",
+  "shared.readOnly": "Read-only view",
+  "shared.empty": "No entries are assigned to this trip.",
+  "shared.savePdf": "Save as PDF",
+
+  "employees.company": "Company",
+  "employees.companyHint": "An employee joins by typing this name in their settings. You see their work hours and payouts — the costs they cover themselves stay private.",
+  "employees.requests": "Join requests ({count})",
+  "employees.accept": "Accept",
+  "employees.reject": "Reject",
+  "employees.team": "Team ({count})",
+  "employees.month": "Month",
+  "employees.sort": "Sort",
+  "employees.sortName": "Alphabetically",
+  "employees.sortHours": "By hours",
+  "employees.empty": "Nobody has joined yet. Give your employees the exact company name — they type it in their settings.",
+  "employees.onTrip": "on a trip",
+  "employees.atHome": "at home",
+  "employees.lastEntry": "Last entry: {when}",
+  "employees.noEntries": "No hour entries",
 
   "summary.netProfit": "Net profit",
   "summary.workEntries": "Work hours on this trip",

@@ -3,6 +3,8 @@
 import { Copy, KeyRound, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
+import { useT } from "@/components/locale-provider";
+
 import { Modal } from "./ui";
 
 /**
@@ -12,31 +14,30 @@ import { Modal } from "./ui";
 export function RecoveryCodeDialog({
   code,
   onClose,
-  title = "Zapisz kod odzyskiwania",
-  confirmLabel = "Zapisałem kod",
+  title,
+  confirmLabel,
 }: {
   code: string;
   onClose: () => void;
   title?: string;
   confirmLabel?: string;
 }) {
+  const t = useT();
+
   async function copy() {
     try {
       await navigator.clipboard.writeText(code);
-      toast.success("Kod skopiowany do schowka");
+      toast.success(t("recovery.copied"));
     } catch {
-      toast.error("Nie udało się skopiować — przepisz kod ręcznie");
+      toast.error(t("recovery.copyFailed"));
     }
   }
 
   return (
-    <Modal title={title} onClose={onClose}>
+    <Modal title={title ?? t("recovery.title")} onClose={onClose}>
       <div className="flex items-start gap-3 rounded-xl bg-secondary p-4">
         <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
-        <p className="min-w-0 text-sm">
-          To jedyny moment, w którym widzisz ten kod. Bez niego nie odzyskasz dostępu do konta po
-          zapomnieniu hasła — zapisz go w bezpiecznym miejscu.
-        </p>
+        <p className="min-w-0 text-sm">{t("recovery.warning")}</p>
       </div>
 
       <div className="rounded-xl bg-secondary p-4 text-center">
@@ -49,7 +50,7 @@ export function RecoveryCodeDialog({
         onClick={copy}
         className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-secondary text-sm font-semibold"
       >
-        <Copy className="h-4 w-4 shrink-0" /> Kopiuj kod
+        <Copy className="h-4 w-4 shrink-0" /> {t("recovery.copy")}
       </button>
 
       <button
@@ -57,7 +58,7 @@ export function RecoveryCodeDialog({
         onClick={onClose}
         className="flex h-14 w-full items-center justify-center rounded-xl bg-primary text-base font-semibold text-primary-foreground"
       >
-        {confirmLabel}
+        {confirmLabel ?? t("recovery.confirm")}
       </button>
     </Modal>
   );

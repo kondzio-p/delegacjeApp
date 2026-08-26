@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { useT } from "@/components/locale-provider";
 import { CURRENCIES, type Currency } from "@/lib/money";
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -54,6 +55,8 @@ export function Modal({
   onClose: () => void;
   children: ReactNode;
 }) {
+  const t = useT();
+
   return (
     <div
       className="no-print fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm sm:items-center"
@@ -67,7 +70,7 @@ export function Modal({
           <h2 className="min-w-0 truncate text-base font-semibold">{title}</h2>
           <button
             type="button"
-            aria-label="Zamknij"
+            aria-label={t("ui.close")}
             onClick={onClose}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl active:bg-secondary"
           >

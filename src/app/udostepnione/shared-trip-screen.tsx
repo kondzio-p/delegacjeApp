@@ -3,13 +3,15 @@
 import { EyeOff, FileDown, Plane } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { useT } from "@/components/locale-provider";
 import {
   CategoryBreakdown,
   TransactionsList,
   TripStatsGrid,
   WorkEntriesList,
 } from "@/components/trip-summary-view";
-import { CURRENCIES, formatDateTime, type Currency } from "@/lib/money";
+import { useFormat } from "@/components/use-format";
+import { CURRENCIES, type Currency } from "@/lib/money";
 import { isoDay, printDocument } from "@/lib/print";
 import { summarizeTrip } from "@/lib/trip-summary";
 import type { SharedTripPayload } from "@/lib/queries";
@@ -22,6 +24,8 @@ export function SharedTripScreen({
   payload: SharedTripPayload;
   rates: CurrentRates | null;
 }) {
+  const t = useT();
+  const fmt = useFormat();
   const [display, setDisplay] = useState<Currency>("PLN");
   const [now] = useState(() => Date.now());
 
@@ -37,14 +41,15 @@ export function SharedTripScreen({
         display,
         rates,
         now,
+        locale: fmt.locale,
       }),
-    [payload, display, rates, now],
+    [payload, display, rates, now, fmt.locale],
   );
 
   return (
     <Layout>
       <section className="no-print rounded-2xl bg-card p-4">
-        <p className="mb-3 text-sm font-medium text-muted-foreground">Wyświetl w</p>
+        <p className="mb-3 text-sm font-medium text-muted-foreground">{t("dash.displayIn")}</p>
         <div className="grid grid-cols-3 gap-2 rounded-xl bg-secondary p-1">
           {CURRENCIES.map((c) => (
             <button
@@ -61,16 +66,21 @@ export function SharedTripScreen({
         </div>
         {rates && (
           <p className="mt-3 text-xs text-muted-foreground">
-            Kurs NBP {rates.rates.EUR.toFixed(4)} PLN za 1 EUR (tabela z {rates.effectiveDate}).
+            {t("dash.rateFromNbp", {
+              rate: rates.rates.EUR.toFixed(4),
+              date: rates.effectiveDate,
+            })}
           </p>
         )}
       </section>
 
       <div className="print-only mb-4">
-        <h1 className="text-xl font-bold">Podsumowanie wyjazdu</h1>
+        <h1 className="text-xl font-bold">{t("shared.title")}</h1>
         <p className="text-sm">
-          {formatDateTime(payload.trip.departure_at)} —{" "}
-          {payload.trip.return_at ? formatDateTime(payload.trip.return_at) : "podróż w toku"}
+          {fmt.dateTime(payload.trip.departure_at)} —{" "}
+          {payload.trip.return_at
+            ? fmt.dateTime(payload.trip.return_at)
+            : t("tripDetail.ongoingLong")}
         </p>
       </div>
 
@@ -81,29 +91,31 @@ export function SharedTripScreen({
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">
-              {formatDateTime(payload.trip.departure_at)}
+              {fmt.dateTime(payload.trip.departure_at)}
             </p>
             <p className="truncate text-sm text-muted-foreground">
               {payload.trip.return_at ? (
-                formatDateTime(payload.trip.return_at)
+                fmt.dateTime(payload.trip.return_at)
               ) : (
-                <span className="font-medium text-success">w toku</span>
+                <span className="font-medium text-success">{t("common.ongoing")}</span>
               )}
             </p>
           </div>
         </div>
         <p className="mt-3 rounded-xl bg-secondary px-4 py-3 text-sm">
-          Czas trwania:{" "}
+          {t("tripDetail.duration")}{" "}
           <span className="font-semibold tabular-nums">
-            {summary.tripDays} dni {summary.tripRest} h
+            {t("tripDetail.durationValue", { days: summary.tripDays, hours: summary.tripRest })}
           </span>
-          {summary.isOngoing && <span className="text-muted-foreground"> (liczone do teraz)</span>}
+          {summary.isOngoing && (
+            <span className="text-muted-foreground"> {t("tripDetail.untilNow")}</span>
+          )}
         </p>
       </section>
 
       {summary.isEmpty ? (
         <p className="mt-4 rounded-2xl bg-card p-6 text-center text-sm text-muted-foreground">
-          Brak wpisów przypisanych do tej podróży.
+          {t("shared.empty")}
         </p>
       ) : (
         <>
@@ -119,7 +131,7 @@ export function SharedTripScreen({
         onClick={() => printDocument(`Wyjazd_${isoDay(payload.trip.departure_at, "podroz")}`)}
         className="no-print mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-card text-base font-semibold active:bg-secondary"
       >
-        <FileDown className="h-5 w-5 shrink-0" /> Zapisz jako PDF
+        <FileDown className="h-5 w-5 shrink-0" /> {t("shared.savePdf")}
       </button>
     </Layout>
   );
@@ -139,6 +151,8 @@ export function Unavailable({ message }: { message: string }) {
 }
 
 function Layout({ children }: { children: React.ReactNode }) {
+  const t = useT();
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="no-print border-b border-border bg-card">
@@ -147,8 +161,10 @@ function Layout({ children }: { children: React.ReactNode }) {
             <Plane className="h-5 w-5 text-primary-foreground" />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-base font-semibold">Podsumowanie wyjazdu</p>
-            <p className="truncate text-xs text-muted-foreground">Widok tylko do odczytu</p>
+            <p className="truncate text-base font-semibold">{t("shared.title")}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {t("shared.readOnly")}
+            </p>
           </div>
         </div>
       </header>

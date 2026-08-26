@@ -5,10 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { useT } from "@/components/locale-provider";
 import { useAction } from "@/components/use-action";
+import { useFormat } from "@/components/use-format";
 import { EmptyState } from "@/components/ui";
 import { acceptJoinRequestAction, rejectJoinRequestAction } from "@/lib/actions/company";
-import { formatDate, formatHours } from "@/lib/money";
+import { formatHours } from "@/lib/money";
 import type { EmployeeCard, JoinRequestRow } from "@/lib/queries";
 import type { ActionState } from "@/lib/types";
 
@@ -27,6 +29,8 @@ export function EmployeesScreen({
   month: string;
   months: { key: string; label: string }[];
 }) {
+  const t = useT();
+  const fmt = useFormat();
   const router = useRouter();
   const [sort, setSort] = useState<SortMode>("name");
 
@@ -38,28 +42,26 @@ export function EmployeesScreen({
     if (sort === "hours") {
       // Przy równych godzinach zostaje kolejność alfabetyczna — stabilny wynik.
       return list.sort(
-        (a, b) => b.monthHours - a.monthHours || a.name.localeCompare(b.name, "pl"),
+        (a, b) =>
+          b.monthHours - a.monthHours || a.name.localeCompare(b.name, fmt.locale),
       );
     }
-    return list.sort((a, b) => a.name.localeCompare(b.name, "pl"));
-  }, [employees, sort]);
+    return list.sort((a, b) => a.name.localeCompare(b.name, fmt.locale));
+  }, [employees, sort, fmt.locale]);
 
   return (
     <>
       <section className="rounded-2xl bg-card p-4">
-        <p className="text-sm text-muted-foreground">Firma</p>
+        <p className="text-sm text-muted-foreground">{t("employees.company")}</p>
         <p className="mt-1 break-words text-lg font-semibold">{companyName}</p>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Pracownik dołącza, wpisując tę nazwę w swoich ustawieniach. Widzisz jego godziny pracy
-          i wypłaty — koszty, które ponosi sam, zostają prywatne.
-        </p>
+        <p className="mt-2 text-xs text-muted-foreground">{t("employees.companyHint")}</p>
       </section>
 
       {requests.length > 0 && (
         <>
           <h2 className="mt-6 mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             <UserPlus className="h-4 w-4 shrink-0" />
-            Prośby o dołączenie ({requests.length})
+            {t("employees.requests", { count: requests.length })}
           </h2>
           <div className="space-y-3">
             {requests.map((request) => (
@@ -77,14 +79,14 @@ export function EmployeesScreen({
                   <RequestButton
                     action={acceptJoinRequestAction}
                     userId={request.user_id}
-                    label="Akceptuj"
+                    label={t("employees.accept")}
                     icon={<Check className="h-4 w-4 shrink-0" />}
                     className="bg-success text-success-foreground"
                   />
                   <RequestButton
                     action={rejectJoinRequestAction}
                     userId={request.user_id}
-                    label="Odrzuć"
+                    label={t("employees.reject")}
                     icon={<X className="h-4 w-4 shrink-0" />}
                     className="bg-secondary text-destructive"
                   />
@@ -96,12 +98,12 @@ export function EmployeesScreen({
       )}
 
       <h2 className="mt-6 mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        Zespół ({employees.length})
+        {t("employees.team", { count: employees.length })}
       </h2>
 
       <section className="mb-3 rounded-2xl bg-card p-4">
         <label className="block text-sm font-medium text-muted-foreground" htmlFor="month">
-          Miesiąc
+          {t("employees.month")}
         </label>
         <select
           id="month"
@@ -116,12 +118,12 @@ export function EmployeesScreen({
           ))}
         </select>
 
-        <p className="mt-4 mb-2 text-sm font-medium text-muted-foreground">Sortuj</p>
+        <p className="mt-4 mb-2 text-sm font-medium text-muted-foreground">{t("employees.sort")}</p>
         <div className="grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1">
           {(
             [
-              { mode: "name", label: "Alfabetycznie", icon: ArrowDownAZ },
-              { mode: "hours", label: "Wg godzin", icon: ArrowDownWideNarrow },
+              { mode: "name", label: t("employees.sortName"), icon: ArrowDownAZ },
+              { mode: "hours", label: t("employees.sortHours"), icon: ArrowDownWideNarrow },
             ] as const
           ).map((option) => (
             <button
@@ -143,10 +145,7 @@ export function EmployeesScreen({
 
       <div className="space-y-3">
         {employees.length === 0 && (
-          <EmptyState>
-            Nikt jeszcze nie dołączył. Podaj pracownikom dokładną nazwę firmy — wpisują ją w swoich
-            ustawieniach.
-          </EmptyState>
+          <EmptyState>{t("employees.empty")}</EmptyState>
         )}
 
         {sorted.map((employee) => (
@@ -164,11 +163,11 @@ export function EmployeesScreen({
                 <p className="min-w-0 truncate text-sm font-semibold">{employee.name}</p>
                 {employee.onTrip ? (
                   <span className="flex shrink-0 items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
-                    <Plane className="h-3 w-3" /> na wyjeździe
+                    <Plane className="h-3 w-3" /> {t("employees.onTrip")}
                   </span>
                 ) : (
                   <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-                    w kraju
+                    {t("employees.atHome")}
                   </span>
                 )}
               </div>
@@ -183,10 +182,10 @@ export function EmployeesScreen({
 
               <p className="mt-1 truncate text-xs text-muted-foreground">
                 {employee.lastEntry
-                  ? `Ostatni wpis: ${formatDate(employee.lastEntry.work_date)} · ${
-                      employee.lastEntry.start_time
-                    }–${employee.lastEntry.end_time}`
-                  : "Brak wpisów godzin"}
+                  ? t("employees.lastEntry", {
+                      when: `${fmt.date(employee.lastEntry.work_date)} · ${employee.lastEntry.start_time}–${employee.lastEntry.end_time}`,
+                    })
+                  : t("employees.noEntries")}
               </p>
             </div>
 
