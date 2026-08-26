@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 
+import { pageMetadata } from "@/lib/i18n/metadata";
 import { getTrips } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 
 import { TripsScreen } from "./trips-screen";
 
-export const metadata: Metadata = {
-  title: "Podróże",
-  description: "Rejestruj wyjazdy i powroty.",
-};
+export function generateMetadata(): Promise<Metadata> {
+  return pageMetadata("nav.trips", "meta.trips");
+}
 
 export default async function TripsPage() {
   const user = await requireUser();

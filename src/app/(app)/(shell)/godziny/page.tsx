@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 
+import { pageMetadata } from "@/lib/i18n/metadata";
 import { getTrips, getWorkEntries } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 
 import { WorkEntriesScreen } from "./work-entries-screen";
 
-export const metadata: Metadata = {
-  title: "Godziny pracy",
-  description: "Zapisuj przepracowane godziny — data, od której do której.",
-};
+export function generateMetadata(): Promise<Metadata> {
+  return pageMetadata("nav.hours", "meta.hours");
+}
 
 export default async function WorkPage() {
   const user = await requireUser();

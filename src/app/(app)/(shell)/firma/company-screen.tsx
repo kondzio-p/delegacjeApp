@@ -156,7 +156,7 @@ function PeriodPicker({
 
   return (
     <section className="mt-4 rounded-2xl bg-card p-4">
-      <p className="mb-2 text-sm font-medium text-muted-foreground">Okres</p>
+      <p className="mb-2 text-sm font-medium text-muted-foreground">{t("company.period")}</p>
       <div className="grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1">
         {presets.map((preset) => {
           const active =

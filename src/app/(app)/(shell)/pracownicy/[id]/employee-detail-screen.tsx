@@ -369,6 +369,7 @@ function EntryGroup({
 }
 
 function DeleteEntryButton({ id, employeeId }: { id: string; employeeId: string }) {
+  const t = useT();
   const [, formAction, pending] = useAction(deleteWorkEntryAction, { toastError: true });
 
   return (
@@ -378,7 +379,7 @@ function DeleteEntryButton({ id, employeeId }: { id: string; employeeId: string 
       <button
         type="submit"
         disabled={pending}
-        aria-label="Usuń wpis"
+        aria-label={t("hours.delete")}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-destructive active:bg-secondary disabled:opacity-50"
       >
         <Trash2 className="h-5 w-5" />

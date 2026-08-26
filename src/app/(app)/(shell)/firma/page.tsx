@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { pageMetadata } from "@/lib/i18n/metadata";
 import { getCurrentRates } from "@/lib/nbp";
 import { periodFromParams } from "@/lib/period";
 import { getCompanyEmployees, getCompanyPayrollReport } from "@/lib/queries";
@@ -7,10 +8,9 @@ import { requireOwner } from "@/lib/session";
 
 import { CompanyScreen } from "./company-screen";
 
-export const metadata: Metadata = {
-  title: "Moja firma",
-  description: "Wypłaty i godziny zespołu w wybranym okresie oraz raport dla księgowej.",
-};
+export function generateMetadata(): Promise<Metadata> {
+  return pageMetadata("nav.company", "meta.company");
+}
 
 export default async function CompanyPage({
   searchParams,

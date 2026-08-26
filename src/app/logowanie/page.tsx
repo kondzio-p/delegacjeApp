@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
+
+import { pageMetadata } from "@/lib/i18n/metadata";
 import { redirect } from "next/navigation";
 
 import { AuthForm } from "./auth-form";
 import { getSessionUser } from "@/lib/auth";
 
-export const metadata: Metadata = {
-  title: "Logowanie",
-  description: "Zaloguj się, aby zapisywać godziny pracy i wypłaty.",
-};
+export function generateMetadata(): Promise<Metadata> {
+  return pageMetadata("auth.login", "meta.login");
+}
 
 export default async function LoginPage() {
   // Kto ma ważną sesję, nie powinien oglądać formularza logowania.

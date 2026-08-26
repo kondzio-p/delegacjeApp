@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+
+import { pageMetadata } from "@/lib/i18n/metadata";
 import { notFound } from "next/navigation";
 
 import { getEmployeePayouts, getTrips, getWorkEntries } from "@/lib/queries";
@@ -6,10 +8,9 @@ import { findMyEmployee, requireOwner } from "@/lib/session";
 
 import { EmployeeDetailScreen } from "./employee-detail-screen";
 
-export const metadata: Metadata = {
-  title: "Pracownik",
-  description: "Godziny pracy i wypłaty pracownika w podziale na miesiące i wyjazdy.",
-};
+export function generateMetadata(): Promise<Metadata> {
+  return pageMetadata("title.employee", "meta.employee");
+}
 
 export default async function EmployeeDetailPage({
   params,

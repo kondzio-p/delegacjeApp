@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 
+import { pageMetadata } from "@/lib/i18n/metadata";
 import { getCompanyStatus } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 
 import { SettingsScreen } from "./settings-screen";
 
-export const metadata: Metadata = {
-  title: "Ustawienia",
-  description: "Konto, hasło, firma, kategorie kosztów i prywatność.",
-};
+export function generateMetadata(): Promise<Metadata> {
+  return pageMetadata("nav.settings", "meta.settings");
+}
 
 export default async function SettingsPage() {
   const user = await requireUser();

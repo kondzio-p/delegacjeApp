@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+
+import { pageMetadata } from "@/lib/i18n/metadata";
 import { notFound } from "next/navigation";
 
 import { getExpenses, getPayouts, getTrip, getWorkEntries } from "@/lib/queries";
@@ -6,10 +8,9 @@ import { requireUser } from "@/lib/session";
 
 import { TripDetailScreen } from "./trip-detail-screen";
 
-export const metadata: Metadata = {
-  title: "Podsumowanie podróży",
-  description: "Godziny, koszty, wypłaty i realny zarobek z jednego wyjazdu.",
-};
+export function generateMetadata(): Promise<Metadata> {
+  return pageMetadata("title.tripDetail", "meta.tripDetail");
+}
 
 export default async function TripDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

@@ -1,34 +1,41 @@
 import type { Metadata } from "next";
 
+import { translate } from "@/lib/i18n/dictionaries";
+import { getLocale } from "@/lib/i18n/locale.server";
 import { getCurrentRates } from "@/lib/nbp";
 import { getSharedTrip } from "@/lib/queries";
 
 import { SharedTripScreen, Unavailable } from "./shared-trip-screen";
 
-const SHARED_TITLE = "Podsumowanie wyjazdu";
-const SHARED_DESCRIPTION = "Przepracowane godziny i podsumowanie wyjazdu, udostępnione linkiem.";
+export async function generateMetadata(): Promise<Metadata> {
+  // Podgląd linku ogląda ktoś z zewnątrz, ale język bierzemy z ciasteczka
+  // udostępniającego — to on wysyła link i to on widzi, co się w nim pokaże.
+  const locale = await getLocale();
+  const title = translate(locale, "shared.title");
+  const description = translate(locale, "meta.shared");
 
-export const metadata: Metadata = {
-  title: SHARED_TITLE,
-  description: SHARED_DESCRIPTION,
-  // Udostępniony link nie powinien trafiać do wyszukiwarek, ale komunikatory
-  // i tak pokazują podgląd — dlatego własny opis zamiast ogólnego z warstwy głównej.
-  robots: { index: false, follow: false },
-  // Własny blok openGraph zastępuje ten z warstwy głównej w całości, więc obrazek
-  // trzeba wskazać ponownie — bez tego podgląd linku zostaje bez grafiki.
-  openGraph: {
-    title: SHARED_TITLE,
-    description: SHARED_DESCRIPTION,
-    type: "article",
-    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, type: "image/png" }],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: SHARED_TITLE,
-    description: SHARED_DESCRIPTION,
-    images: ["/twitter-image.png"],
-  },
-};
+  return {
+    title,
+    description,
+    // Udostępniony link nie powinien trafiać do wyszukiwarek, ale komunikatory
+    // i tak pokazują podgląd — dlatego własny opis zamiast ogólnego z warstwy głównej.
+    robots: { index: false, follow: false },
+    // Własny blok openGraph zastępuje ten z warstwy głównej w całości, więc obrazek
+    // trzeba wskazać ponownie — bez tego podgląd linku zostaje bez grafiki.
+    openGraph: {
+      title,
+      description,
+      type: "article",
+      images: [{ url: "/opengraph-image.png", width: 1200, height: 630, type: "image/png" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ["/twitter-image.png"],
+    },
+  };
+}
 
 export default async function SharedTripPage({
   searchParams,

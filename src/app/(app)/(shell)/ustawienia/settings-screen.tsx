@@ -50,6 +50,7 @@ import {
   exportMyDataAction,
   exportMyDataCsvAction,
 } from "@/lib/actions/privacy";
+import { useT } from "@/components/locale-provider";
 import { downloadFile } from "@/lib/print";
 import { CURRENCIES } from "@/lib/money";
 import { DELETE_CONFIRMATION } from "@/lib/privacy";
@@ -71,6 +72,7 @@ export function SettingsScreen({
   user: SessionUser;
   status: CompanyStatus;
 }) {
+  const t = useT();
   const { display, setDisplay } = useSettings();
 
   return (
@@ -78,9 +80,7 @@ export function SettingsScreen({
       {user.must_change_password && (
         <section className="flex items-start gap-3 rounded-2xl border border-destructive/40 bg-card p-4">
           <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
-          <p className="min-w-0 text-sm">
-            Twoje hasło zostało zresetowane przez właściciela firmy. Ustaw własne hasło poniżej.
-          </p>
+          <p className="min-w-0 text-sm">{t("settings.mustChangePassword")}</p>
         </section>
       )}
 
@@ -93,7 +93,7 @@ export function SettingsScreen({
 
       <section className="mt-4 rounded-2xl bg-card p-4">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Waluta wyświetlania
+          {t("settings.displayCurrency")}
         </h2>
         <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl bg-secondary p-1">
           {CURRENCIES.map((c) => (
@@ -110,9 +110,7 @@ export function SettingsScreen({
           ))}
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          Waluta jest zapisana na Twoim koncie, więc obowiązuje na każdym urządzeniu. Kursy
-          pobieramy z NBP, a przy każdym wpisie zapamiętujemy kurs z jego dnia, żeby historia
-          się nie zmieniała.
+          {t("settings.displayCurrencyHint")}
         </p>
       </section>
 
@@ -137,6 +135,7 @@ export function SettingsScreen({
  * bo tego oczekuje ktoś, kto poprawia literówkę.
  */
 function CategoriesSection({ categories }: { categories: string[] }) {
+  const t = useT();
   const [addState, addAction, addPending] = useAction(addExpenseCategoryAction, {
     toastError: true,
   });
@@ -147,7 +146,7 @@ function CategoriesSection({ categories }: { categories: string[] }) {
       <div className="flex items-center gap-2">
         <Tags className="h-5 w-5 shrink-0 text-primary" />
         <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Kategorie kosztów
+          {t("settings.categories")}
         </h2>
       </div>
 
@@ -169,7 +168,7 @@ function CategoriesSection({ categories }: { categories: string[] }) {
               <button
                 type="button"
                 onClick={() => setRenaming(category)}
-                aria-label={`Zmień nazwę kategorii ${category}`}
+                aria-label={t("settings.renameCategory", { name: category })}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground active:bg-card"
               >
                 <Pencil className="h-4 w-4" />
@@ -185,13 +184,13 @@ function CategoriesSection({ categories }: { categories: string[] }) {
           name="name"
           required
           maxLength={30}
-          placeholder="Nowa kategoria"
+          placeholder={t("settings.newCategory")}
           className="input-field input-field-compact min-w-0 flex-1"
         />
         <button
           type="submit"
           disabled={addPending}
-          aria-label="Dodaj kategorię"
+          aria-label={t("settings.addCategory")}
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground disabled:opacity-60"
         >
           <Plus className="h-5 w-5" />
@@ -199,9 +198,7 @@ function CategoriesSection({ categories }: { categories: string[] }) {
       </form>
       <FormMessage error={addState.error} />
 
-      <p className="mt-3 text-xs text-muted-foreground">
-        Usunięcie kategorii nie kasuje kosztów — dotychczasowe wpisy zachowują swoją nazwę.
-      </p>
+      <p className="mt-3 text-xs text-muted-foreground">{t("settings.categoriesHint")}</p>
     </section>
   );
 }
@@ -213,6 +210,7 @@ function RenameCategoryForm({
   category: string;
   onDone: () => void;
 }) {
+  const t = useT();
   const [state, action, pending] = useAction(renameExpenseCategoryAction, {
     toastError: true,
     onSuccess: onDone,
@@ -234,12 +232,12 @@ function RenameCategoryForm({
         disabled={pending}
         className="flex h-12 shrink-0 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
       >
-        Zapisz
+        {t("settings.save")}
       </button>
       <button
         type="button"
         onClick={onDone}
-        aria-label="Anuluj"
+        aria-label={t("settings.cancel")}
         className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-secondary"
       >
         <X className="h-5 w-5" />
@@ -250,6 +248,7 @@ function RenameCategoryForm({
 }
 
 function RemoveCategoryButton({ category }: { category: string }) {
+  const t = useT();
   const [, action, pending] = useAction(removeExpenseCategoryAction, { toastError: true });
 
   return (
@@ -258,7 +257,7 @@ function RemoveCategoryButton({ category }: { category: string }) {
       <button
         type="submit"
         disabled={pending}
-        aria-label={`Usuń kategorię ${category}`}
+        aria-label={t("settings.removeCategory", { name: category })}
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-destructive active:bg-card disabled:opacity-50"
       >
         <Trash2 className="h-4 w-4" />
@@ -273,6 +272,7 @@ function RemoveCategoryButton({ category }: { category: string }) {
  * w adresie jest nieszkodliwa. Zarządzać może wyłącznie założyciel.
  */
 function CoOwnersSection({ status }: { status: CompanyStatus }) {
+  const t = useT();
   const [inviteState, inviteAction, invitePending] = useAction(inviteCoOwnerAction);
 
   // Zaproszony widzi tę sekcję jako decyzję do podjęcia.
@@ -282,20 +282,19 @@ function CoOwnersSection({ status }: { status: CompanyStatus }) {
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 shrink-0 text-accent" />
           <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Zaproszenie do współwłasności
+            {t("settings.coOwnerInvite")}
           </h2>
         </div>
         <p className="mt-3 text-sm">
-          Firma <span className="font-semibold">{status.inviteCompanyName}</span> zaprasza Cię jako
-          współwłaściciela. Zyskasz dostęp do pracowników i raportów.
+          {t("settings.coOwnerInviteBody", { company: status.inviteCompanyName })}
         </p>
         <div className="mt-3 flex gap-2">
           <SimpleActionButton
             action={acceptCoOwnerInviteAction}
-            label="Akceptuj"
+            label={t("employees.accept")}
             className="bg-success text-success-foreground"
           />
-          <SimpleActionButton action={rejectCoOwnerInviteAction} label="Odrzuć" />
+          <SimpleActionButton action={rejectCoOwnerInviteAction} label={t("employees.reject")} />
         </div>
       </section>
     );
@@ -307,13 +306,11 @@ function CoOwnersSection({ status }: { status: CompanyStatus }) {
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 shrink-0 text-primary" />
           <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Współwłasność
+            {t("settings.coOwnership")}
           </h2>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
-          Jesteś współwłaścicielem firmy{" "}
-          <span className="font-semibold text-foreground">{status.coOwnedCompanyName}</span>. Możesz
-          wszystko poza skasowaniem firmy i zarządzaniem współwłaścicielami.
+          {t("settings.coOwnershipBody", { company: status.coOwnedCompanyName })}
         </p>
       </section>
     );
@@ -327,12 +324,12 @@ function CoOwnersSection({ status }: { status: CompanyStatus }) {
       <div className="flex items-center gap-2">
         <Users className="h-5 w-5 shrink-0 text-primary" />
         <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Współwłaściciele
+          {t("settings.coOwners")}
         </h2>
       </div>
 
       {status.coOwners.length === 0 ? (
-        <p className="mt-3 text-sm text-muted-foreground">Nikt jeszcze nie współprowadzi firmy.</p>
+        <p className="mt-3 text-sm text-muted-foreground">{t("settings.noCoOwners")}</p>
       ) : (
         <ul className="mt-3 space-y-2">
           {status.coOwners.map((coOwner) => (
@@ -353,7 +350,7 @@ function CoOwnersSection({ status }: { status: CompanyStatus }) {
       )}
 
       <form action={inviteAction} className="mt-3 space-y-3">
-        <Field label="E-mail istniejącego konta">
+        <Field label={t("settings.coOwnerEmail")}>
           <input
             name="email"
             type="email"
@@ -368,19 +365,17 @@ function CoOwnersSection({ status }: { status: CompanyStatus }) {
           disabled={invitePending}
           className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-secondary text-sm font-semibold disabled:opacity-60"
         >
-          <Plus className="h-4 w-4 shrink-0" /> Zaproś współwłaściciela
+          <Plus className="h-4 w-4 shrink-0" /> {t("settings.inviteCoOwner")}
         </button>
       </form>
 
-      <p className="mt-3 text-xs text-muted-foreground">
-        Zaproszony musi mieć konto i potwierdzić zaproszenie u siebie w ustawieniach.
-        Współwłaściciel nie może skasować firmy ani usunąć Ciebie.
-      </p>
+      <p className="mt-3 text-xs text-muted-foreground">{t("settings.coOwnersHint")}</p>
     </section>
   );
 }
 
 function RemoveCoOwnerButton({ userId, name }: { userId: string; name: string }) {
+  const t = useT();
   const [, action, pending] = useAction(removeCoOwnerAction, { toastError: true });
 
   return (
@@ -389,7 +384,7 @@ function RemoveCoOwnerButton({ userId, name }: { userId: string; name: string })
       <button
         type="submit"
         disabled={pending}
-        aria-label={`Usuń współwłaściciela ${name}`}
+        aria-label={t("settings.removeCoOwner", { name })}
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-destructive active:bg-card disabled:opacity-50"
       >
         <Trash2 className="h-4 w-4" />
@@ -405,6 +400,7 @@ function dzisiaj(): string {
 
 /** Zgoda, eksport własnych danych i usunięcie konta — obowiązki z RODO. */
 function PrivacySection() {
+  const t = useT();
   const [deleteState, deleteAction, deletePending] = useAction(deleteMyAccountAction);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -421,7 +417,7 @@ function PrivacySection() {
       if (!result.json) return;
 
       downloadFile(`godzio-moje-dane-${dzisiaj()}.json`, result.json, "application/json");
-      toast.success("Pobrano Twoje dane");
+      toast.success(t("settings.exported"));
     } finally {
       setExporting(false);
     }
@@ -445,7 +441,7 @@ function PrivacySection() {
 
       const name = kind === "hours" ? "godziny" : "koszty-i-wyplaty";
       downloadFile(`godzio-${name}-${dzisiaj()}.csv`, csv, "text/csv;charset=utf-8");
-      toast.success("Pobrano plik CSV");
+      toast.success(t("settings.exportedCsv"));
     } finally {
       setExportingCsv(null);
     }
@@ -456,14 +452,12 @@ function PrivacySection() {
       <div className="flex items-center gap-2">
         <ShieldCheck className="h-5 w-5 shrink-0 text-primary" />
         <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Prywatność i Twoje dane
+          {t("settings.privacy")}
         </h2>
       </div>
 
       <p className="mt-3 rounded-xl bg-secondary px-4 py-3 text-sm text-muted-foreground">
-        Korzystając z aplikacji zgadzasz się, aby właściciel firmy, do której należysz, widział
-        Twoje <span className="font-medium text-foreground">godziny pracy i wypłaty</span>. Twoje
-        koszty pozostają prywatne — nikt poza Tobą ich nie widzi.
+        {t("settings.privacyBody")}
       </p>
 
       <button
@@ -472,7 +466,7 @@ function PrivacySection() {
         disabled={exporting}
         className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-secondary text-sm font-semibold disabled:opacity-60"
       >
-        <Download className="h-4 w-4 shrink-0" /> Pobierz moje dane (JSON)
+        <Download className="h-4 w-4 shrink-0" /> {t("settings.exportJson")}
       </button>
 
       <div className="mt-2 grid grid-cols-2 gap-2">
@@ -483,7 +477,7 @@ function PrivacySection() {
           className="flex h-12 min-w-0 items-center justify-center gap-2 rounded-xl bg-secondary px-3 text-sm font-semibold disabled:opacity-60"
         >
           <Download className="h-4 w-4 shrink-0" />
-          <span className="truncate">Koszty i wypłaty (CSV)</span>
+          <span className="truncate">{t("settings.exportCsvTransactions")}</span>
         </button>
         <button
           type="button"
@@ -492,7 +486,7 @@ function PrivacySection() {
           className="flex h-12 min-w-0 items-center justify-center gap-2 rounded-xl bg-secondary px-3 text-sm font-semibold disabled:opacity-60"
         >
           <Download className="h-4 w-4 shrink-0" />
-          <span className="truncate">Godziny pracy (CSV)</span>
+          <span className="truncate">{t("settings.exportCsvHours")}</span>
         </button>
       </div>
 
@@ -502,16 +496,12 @@ function PrivacySection() {
           onClick={() => setConfirmOpen(true)}
           className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-destructive text-sm font-semibold text-destructive"
         >
-          <Trash2 className="h-4 w-4 shrink-0" /> Usuń konto
+          <Trash2 className="h-4 w-4 shrink-0" /> {t("settings.deleteAccount")}
         </button>
       ) : (
         <form action={deleteAction} className="mt-3 space-y-3 rounded-xl bg-secondary p-4">
-          <p className="text-sm">
-            Twoje dane osobowe znikną, a konto przestanie działać. Godziny pracy i wypłaty zostaną
-            u pracodawcy jako zapis rozliczenia — bez powiązania z Tobą. Koszty zostaną skasowane.
-            Tego nie da się cofnąć.
-          </p>
-          <Field label={`Przepisz słowo ${DELETE_CONFIRMATION}`}>
+          <p className="text-sm">{t("settings.deleteBody")}</p>
+          <Field label={t("settings.retypeWord", { word: DELETE_CONFIRMATION })}>
             <input name="confirm" required autoFocus className="input-field" />
           </Field>
           <FormMessage error={deleteState.error} />
@@ -521,14 +511,14 @@ function PrivacySection() {
               onClick={() => setConfirmOpen(false)}
               className="flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-card text-sm font-semibold"
             >
-              <X className="h-4 w-4 shrink-0" /> Anuluj
+              <X className="h-4 w-4 shrink-0" /> {t("settings.cancel")}
             </button>
             <button
               type="submit"
               disabled={deletePending}
               className="flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-destructive text-sm font-semibold text-destructive-foreground disabled:opacity-60"
             >
-              <Check className="h-4 w-4 shrink-0" /> Usuń konto
+              <Check className="h-4 w-4 shrink-0" /> {t("settings.deleteAccount")}
             </button>
           </div>
         </form>
@@ -538,6 +528,7 @@ function PrivacySection() {
 }
 
 function ProfileSection({ user }: { user: SessionUser }) {
+  const t = useT();
   const [state, formAction, pending] = useAction(updateProfileAction);
 
   return (
@@ -545,12 +536,12 @@ function ProfileSection({ user }: { user: SessionUser }) {
       <div className="flex items-center gap-2">
         <UserRound className="h-5 w-5 shrink-0 text-primary" />
         <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Konto
+          {t("settings.account")}
         </h2>
       </div>
 
       <form action={formAction} className="mt-3 space-y-4">
-        <Field label="Imię / Pseudonim">
+        <Field label={t("auth.name")}>
           <input
             name="name"
             defaultValue={user.name}
@@ -560,7 +551,7 @@ function ProfileSection({ user }: { user: SessionUser }) {
             className="input-field"
           />
         </Field>
-        <Field label="E-mail (login)">
+        <Field label={t("settings.emailLogin")}>
           <input
             type="email"
             name="email"
@@ -570,17 +561,14 @@ function ProfileSection({ user }: { user: SessionUser }) {
             className="input-field"
           />
         </Field>
-        <p className="text-xs text-muted-foreground">
-          Adresu e-mail na razie nie weryfikujemy i nic na niego nie wysyłamy — służy tylko
-          do logowania.
-        </p>
+        <p className="text-xs text-muted-foreground">{t("settings.emailHint")}</p>
         <FormMessage error={state.error} />
         <button
           type="submit"
           disabled={pending}
           className="flex h-12 w-full items-center justify-center rounded-xl bg-secondary text-sm font-semibold disabled:opacity-60"
         >
-          Zapisz dane
+          {t("settings.saveProfile")}
         </button>
       </form>
     </section>
@@ -588,15 +576,16 @@ function ProfileSection({ user }: { user: SessionUser }) {
 }
 
 function PasswordSection() {
+  const t = useT();
   const [state, formAction, pending] = useAction(changePasswordAction);
 
   return (
     <section className="mt-4 rounded-2xl bg-card p-4">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        Zmiana hasła
+        {t("settings.passwordChange")}
       </h2>
       <form action={formAction} className="mt-3 space-y-4">
-        <Field label="Obecne hasło">
+        <Field label={t("settings.currentPassword")}>
           <input
             type="password"
             name="current"
@@ -605,7 +594,7 @@ function PasswordSection() {
             className="input-field"
           />
         </Field>
-        <Field label="Nowe hasło">
+        <Field label={t("settings.newPassword")}>
           <input
             type="password"
             name="password"
@@ -615,7 +604,7 @@ function PasswordSection() {
             className="input-field"
           />
         </Field>
-        <Field label="Powtórz nowe hasło">
+        <Field label={t("settings.repeatNewPassword")}>
           <input
             type="password"
             name="confirm"
@@ -631,7 +620,7 @@ function PasswordSection() {
           disabled={pending}
           className="flex h-12 w-full items-center justify-center rounded-xl bg-secondary text-sm font-semibold disabled:opacity-60"
         >
-          Zmień hasło
+          {t("settings.changePassword")}
         </button>
       </form>
     </section>
@@ -639,6 +628,7 @@ function PasswordSection() {
 }
 
 function RecoveryCodeSection() {
+  const t = useT();
   const [state, setState] = useState<CodeState>({});
   const [pending, setPending] = useState(false);
 
@@ -656,26 +646,23 @@ function RecoveryCodeSection() {
       <div className="flex items-center gap-2">
         <KeyRound className="h-5 w-5 shrink-0 text-primary" />
         <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Kod odzyskiwania
+          {t("settings.recoveryCode")}
         </h2>
       </div>
-      <p className="mt-3 text-sm text-muted-foreground">
-        Kodu nie da się podejrzeć — w bazie jest tylko jego skrót. Jeśli zgubiłeś swój, wygeneruj
-        nowy; stary przestanie działać.
-      </p>
+      <p className="mt-3 text-sm text-muted-foreground">{t("settings.recoveryCodeHint")}</p>
       <button
         type="button"
         onClick={regenerate}
         disabled={pending}
         className="mt-3 flex h-12 w-full items-center justify-center rounded-xl bg-secondary text-sm font-semibold disabled:opacity-60"
       >
-        Wygeneruj nowy kod
+        {t("settings.regenerate")}
       </button>
 
       {state.recoveryCode && (
         <RecoveryCodeDialog
           code={state.recoveryCode}
-          title="Zapisz nowy kod odzyskiwania"
+          title={t("settings.newRecoveryTitle")}
           onClose={() => setState({})}
         />
       )}
@@ -684,6 +671,7 @@ function RecoveryCodeSection() {
 }
 
 function CompanySection({ user, status }: { user: SessionUser; status: CompanyStatus }) {
+  const t = useT();
   const [ownerState, ownerAction, ownerPending] = useAction(setOwnerModeAction);
   const [joinState, joinAction, joinPending] = useAction(requestJoinAction);
   const [wantsOwner, setWantsOwner] = useState(user.is_owner);
@@ -698,7 +686,7 @@ function CompanySection({ user, status }: { user: SessionUser; status: CompanySt
       <div className="flex items-center gap-2">
         <Building2 className="h-5 w-5 shrink-0 text-primary" />
         <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Firma
+          {t("settings.company")}
         </h2>
       </div>
 
@@ -706,10 +694,8 @@ function CompanySection({ user, status }: { user: SessionUser; status: CompanySt
       <div className="mt-3 rounded-xl bg-secondary p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm font-semibold">Jestem właścicielem firmy</p>
-            <p className="text-xs text-muted-foreground">
-              Po włączeniu w menu pojawia się zakładka Pracownicy.
-            </p>
+            <p className="text-sm font-semibold">{t("settings.ownerMode")}</p>
+            <p className="text-xs text-muted-foreground">{t("settings.ownerModeHint")}</p>
           </div>
           <button
             type="button"
@@ -733,28 +719,28 @@ function CompanySection({ user, status }: { user: SessionUser; status: CompanySt
 
           {wantsOwner ? (
             <>
-              <Field label="Nazwa firmy">
+              <Field label={t("settings.companyName")}>
                 <input
                   name="company_name"
                   required
                   defaultValue={status.ownCompanyName ?? ""}
                   maxLength={80}
-                  placeholder="Kowalski Sp. z o.o."
+                  placeholder={t("settings.companyNamePlaceholder")}
                   className="input-field"
                 />
               </Field>
               <p className="text-xs text-muted-foreground">
-                Tę nazwę pracownicy wpisują u siebie, żeby poprosić o dołączenie do firmy.
+                {t("settings.companyNameHint")}
               </p>
             </>
           ) : (
             user.is_owner && (
               <p className="text-xs text-destructive">
                 {isCoOwner
-                  ? "Zrezygnujesz ze współwłasności. Firma i jej pracownicy zostają — odchodzisz tylko Ty."
+                  ? t("settings.warnCoOwner")
                   : hasCompany
-                    ? "Wyłączenie trybu właściciela kasuje firmę i odłącza od niej wszystkich pracowników. Ich konta i wpisy zostają nietknięte."
-                    : "Wyłączysz tryb właściciela. Nie masz zapisanej firmy, więc nic nie przepadnie."}
+                    ? t("settings.warnHasCompany")
+                    : t("settings.warnNoCompany")}
               </p>
             )
           )}
@@ -770,10 +756,10 @@ function CompanySection({ user, status }: { user: SessionUser; status: CompanySt
               className="flex h-12 w-full items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-60"
             >
               {wantsOwner
-                ? "Zapisz firmę"
+                ? t("settings.saveCompany")
                 : isCoOwner
-                  ? "Zrezygnuj ze współwłasności"
-                  : "Wyłącz tryb właściciela"}
+                  ? t("settings.leaveCoOwnership")
+                  : t("settings.disableOwner")}
             </button>
           )}
         </form>
@@ -784,41 +770,41 @@ function CompanySection({ user, status }: { user: SessionUser; status: CompanySt
         <div className="mt-3 rounded-xl bg-secondary p-4">
           {status.employerName ? (
             <>
-              <p className="text-sm font-semibold">Pracujesz w firmie</p>
+              <p className="text-sm font-semibold">{t("settings.employedAt")}</p>
               <p className="mt-1 break-words text-base font-medium">{status.employerName}</p>
               <p className="mt-2 text-xs text-muted-foreground">
-                Właściciel widzi Twoje godziny pracy i wypłaty. Twoich kosztów nie widzi.
+                {t("settings.employedHint")}
               </p>
               <SimpleActionButton
                 action={leaveCompanyAction}
-                label="Opuść firmę"
+                label={t("settings.leaveCompany")}
                 className="mt-3 text-destructive"
               />
             </>
           ) : status.pendingCompanyName ? (
             <>
-              <p className="text-sm font-semibold">Prośba wysłana</p>
+              <p className="text-sm font-semibold">{t("settings.requestSent")}</p>
               <p className="mt-1 break-words text-base font-medium">
                 {status.pendingCompanyName}
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
-                Czekasz na akceptację właściciela firmy.
+                {t("settings.requestPending")}
               </p>
-              <SimpleActionButton action={cancelJoinRequestAction} label="Anuluj prośbę" />
+              <SimpleActionButton action={cancelJoinRequestAction} label={t("settings.cancelRequest")} />
             </>
           ) : (
             <form action={joinAction} className="space-y-3">
-              <Field label="Pracuję w firmie">
+              <Field label={t("settings.joinLabel")}>
                 <input
                   name="company_name"
                   required
                   maxLength={80}
-                  placeholder="Wpisz dokładną nazwę firmy"
+                  placeholder={t("settings.joinPlaceholder")}
                   className="input-field"
                 />
               </Field>
               <p className="text-xs text-muted-foreground">
-                Nazwę podaje właściciel firmy. Po wysłaniu prośby musi ją jeszcze zaakceptować.
+                {t("settings.joinHint")}
               </p>
               <FormMessage error={joinState.error} />
               <button
@@ -826,7 +812,7 @@ function CompanySection({ user, status }: { user: SessionUser; status: CompanySt
                 disabled={joinPending}
                 className="flex h-12 w-full items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-60"
               >
-                Wyślij prośbę o dołączenie
+                {t("settings.sendRequest")}
               </button>
             </form>
           )}

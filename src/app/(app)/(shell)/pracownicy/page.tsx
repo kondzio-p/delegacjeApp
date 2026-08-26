@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { pageMetadata } from "@/lib/i18n/metadata";
 import { monthLabel } from "@/lib/day";
 import type { Locale } from "@/lib/i18n/config";
 import { getLocale } from "@/lib/i18n/locale.server";
@@ -8,10 +9,9 @@ import { requireOwner } from "@/lib/session";
 
 import { EmployeesScreen } from "./employees-screen";
 
-export const metadata: Metadata = {
-  title: "Pracownicy",
-  description: "Godziny pracy zespołu i prośby o dołączenie do firmy.",
-};
+export function generateMetadata(): Promise<Metadata> {
+  return pageMetadata("nav.employees", "meta.employees");
+}
 
 /**
  * Ostatnie 12 miesięcy wstecz — tyle wystarczy do przejrzenia zespołu.

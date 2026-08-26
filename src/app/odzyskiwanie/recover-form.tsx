@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState } from "react";
 
+import { useT } from "@/components/locale-provider";
 import { RecoveryCodeDialog } from "@/components/recovery-code-dialog";
 import { FormMessage } from "@/components/ui";
 import { recoverAction, type CodeState } from "@/lib/actions/auth";
@@ -15,6 +16,7 @@ import { SubmitButton, TextField } from "../logowanie/auth-form";
 const EMPTY: CodeState = {};
 
 export function RecoverForm() {
+  const t = useT();
   const router = useRouter();
   const [state, formAction, pending] = useActionState(recoverAction, EMPTY);
 
@@ -25,16 +27,15 @@ export function RecoverForm() {
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary">
             <KeyRound className="h-7 w-7 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Odzyskiwanie hasła</h1>
-          <p className="text-sm text-muted-foreground">
-            Podaj kod odzyskiwania zapisany przy zakładaniu konta. Po zmianie hasła dostaniesz nowy
-            kod — stary przestanie działać.
-          </p>
+          <h1 className="text-2xl font-bold text-foreground">
+            {t("meta.recoveryTitle")}
+          </h1>
+          <p className="text-sm text-muted-foreground">{t("recover.intro")}</p>
         </div>
 
         <form action={formAction} className="space-y-4 rounded-2xl bg-card p-5">
           <TextField
-            label="E-mail"
+            label={t("auth.email")}
             name="email"
             type="email"
             autoComplete="email"
@@ -42,14 +43,14 @@ export function RecoverForm() {
             required
           />
           <TextField
-            label="Kod odzyskiwania"
+            label={t("settings.recoveryCode")}
             name="code"
             placeholder="XXXX-XXXX-XXXX"
             autoComplete="off"
             required
           />
           <TextField
-            label="Nowe hasło"
+            label={t("settings.newPassword")}
             name="password"
             type="password"
             autoComplete="new-password"
@@ -57,7 +58,7 @@ export function RecoverForm() {
             required
           />
           <TextField
-            label="Powtórz nowe hasło"
+            label={t("settings.repeatNewPassword")}
             name="confirm"
             type="password"
             autoComplete="new-password"
@@ -65,22 +66,22 @@ export function RecoverForm() {
             required
           />
           <FormMessage error={state.error} />
-          <SubmitButton pending={pending}>Ustaw nowe hasło</SubmitButton>
+          <SubmitButton pending={pending}>{t("recover.submit")}</SubmitButton>
         </form>
 
         <p className="mt-4 text-center text-sm text-muted-foreground">
-          Nie masz kodu? Jeśli pracujesz w firmie, o reset hasła może poprosić jej właściciel.
+          {t("recover.noCode")}
         </p>
         <p className="mt-2 text-center text-sm">
           <Link href="/logowanie" className="font-medium text-primary">
-            Wróć do logowania
+            {t("recover.backToLogin")}
           </Link>
         </p>
 
         {state.recoveryCode && (
           <RecoveryCodeDialog
             code={state.recoveryCode}
-            title="Zapisz nowy kod odzyskiwania"
+            title={t("settings.newRecoveryTitle")}
             onClose={() => {
               router.replace(WELCOME_PATH);
               router.refresh();

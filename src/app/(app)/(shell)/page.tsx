@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 
+import { pageMetadata } from "@/lib/i18n/metadata";
 import { getExpenses, getPayouts, getTrips, getWorkEntries } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 
 import { DashboardScreen } from "./dashboard-screen";
 
-export const metadata: Metadata = {
-  title: "Dashboard",
-  description: "Przepracowane godziny, wypłaty, koszty i realny zarobek w jednym miejscu.",
-};
+export function generateMetadata(): Promise<Metadata> {
+  return pageMetadata("nav.dashboard", "meta.dashboard");
+}
 
 export default async function DashboardPage() {
   const user = await requireUser();
