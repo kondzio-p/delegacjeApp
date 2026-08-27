@@ -348,4 +348,14 @@
     break-inside: avoid;
     page-break-inside: avoid;
   }
+
+  /*
+   * Twarde złamanie strony przed blokiem. Raport firmy używa go do
+   * rozłożenia kart pracowników po trzy na stronę — bez tego przeglądarka
+   * upycha je ciasno i tnie w poprzek.
+   */
+  .print-page-break {
+    break-before: page;
+    page-break-before: always;
+  }
 }
