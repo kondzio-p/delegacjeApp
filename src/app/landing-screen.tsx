@@ -20,13 +20,13 @@ import {
   Globe,
   Link2,
   LogIn,
-  Plane,
   Share2,
   ShieldCheck,
   Smartphone,
   UserPlus,
   Wallet,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -260,9 +260,14 @@ export function LandingScreen() {
       <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-3 px-4">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary">
-              <Clock className="h-5 w-5 text-primary-foreground" />
-            </span>
+            <Image
+              src="/logo-mark.png"
+              alt=""
+              width={36}
+              height={36}
+              priority
+              className="h-9 w-9 shrink-0 rounded-xl"
+            />
             <span className="truncate text-lg font-bold">Godzio</span>
           </div>
 
@@ -297,7 +302,7 @@ export function LandingScreen() {
             data-reveal
             className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-1.5 text-xs font-medium text-muted-foreground"
           >
-            <Plane className="h-3.5 w-3.5" /> {t("landing.eyebrow")}
+            <Clock className="h-3.5 w-3.5" /> {t("landing.eyebrow")}
           </p>
 
           <h1
@@ -345,9 +350,21 @@ export function LandingScreen() {
       </section>
 
       {/* ------------------------------------------------ przełącznik ról */}
-      <div className="sticky top-16 z-30 border-b border-border bg-background/95 py-3 backdrop-blur">
-        <div className="mx-auto w-full max-w-md px-4">
-          <div className="grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1">
+      {/*
+        Ten przełącznik decyduje o całej treści poniżej, więc nie może wyglądać
+        jak ozdoba paska: własne tło, podpis „Wybierz tryb" i wyraźna ramka
+        mówią wprost, że to element do kliknięcia.
+
+        Etykiety ról są długie w każdym języku („Jestem pracownikiem",
+        „Ich bin Mitarbeiter"), dlatego zamiast `truncate` pozwalamy im się zawinąć
+        — dwie linijki są czytelne, ucięte słowo nie.
+      */}
+      <div className="sticky top-16 z-30 border-b border-border bg-secondary/70 py-4 backdrop-blur">
+        <div className="mx-auto w-full max-w-xl px-4">
+          <p className="mb-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {t("landing.roleSwitchTitle")}
+          </p>
+          <div className="grid grid-cols-2 gap-2 rounded-2xl border border-border bg-card p-1.5 shadow-sm">
             {(
               [
                 { key: "pracownik", label: t("landing.roleWorker"), icon: Clock },
@@ -359,14 +376,14 @@ export function LandingScreen() {
                 type="button"
                 onClick={() => setRole(option.key)}
                 aria-pressed={role === option.key}
-                className={`flex min-w-0 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-colors ${
+                className={`flex min-w-0 items-center justify-center gap-2 rounded-xl px-2 py-3 text-[0.8125rem] font-semibold leading-tight transition-colors sm:px-4 sm:text-sm ${
                   role === option.key
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-secondary"
                 }`}
               >
                 <option.icon className="h-4 w-4 shrink-0" />
-                <span className="truncate">{option.label}</span>
+                <span className="min-w-0 text-balance">{option.label}</span>
               </button>
             ))}
           </div>
@@ -530,15 +547,35 @@ export function LandingScreen() {
       </section>
 
       <footer className="border-t border-border">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <p className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
-              <Clock className="h-4 w-4 text-primary-foreground" />
-            </span>
-            <span className="font-semibold text-foreground">Godzio</span> —{" "}
-            {t("landing.footerTagline")}
-          </p>
-          <p>{t("landing.footerNote")}</p>
+        <div className="mx-auto w-full max-w-6xl px-4 py-8 text-sm text-muted-foreground">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="flex items-center gap-2">
+              <Image
+                src="/logo-mark.png"
+                alt=""
+                width={28}
+                height={28}
+                className="h-7 w-7 shrink-0 rounded-lg"
+              />
+              <span className="font-semibold text-foreground">Godzio</span> —{" "}
+              {t("landing.footerTagline")}
+            </p>
+            <p>{t("landing.footerNote")}</p>
+          </div>
+
+          {/*
+            Znak wydawcy. Grafika jest czarna na przezroczystym tle, więc
+            w ciemnym motywie zniknęłaby na tle strony — stąd `dark:invert`.
+          */}
+          <div className="mt-6 flex justify-center border-t border-border pt-6 sm:justify-end">
+            <Image
+              src="/konradzkimedia.png"
+              alt="Konradzki Media"
+              width={582}
+              height={171}
+              className="h-6 w-auto opacity-70 dark:invert"
+            />
+          </div>
         </div>
       </footer>
     </div>
