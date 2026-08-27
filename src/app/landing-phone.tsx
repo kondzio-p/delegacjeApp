@@ -17,6 +17,7 @@
 import {
   ArrowDownCircle,
   ArrowUpCircle,
+  BatteryFull,
   Check,
   Clock,
   Coins,
@@ -25,10 +26,12 @@ import {
   Menu,
   Plane,
   Plus,
+  Signal,
   TrendingUp,
   UserPlus,
   UserRound,
   Wallet,
+  Wifi,
   X,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -52,26 +55,73 @@ const COMPANY = "Kowalski Logistyka";
 
 /* ---------------------------------------------------------------- ramka */
 
-/** Obudowa telefonu — sam chrom, zawartość wstawia wywołujący. */
+/**
+ * Obudowa telefonu — sam chrom, zawartość wstawia wywołujący.
+ *
+ * Kształt odwzorowuje iPhone'a z wyspą: proporcja ekranu 19,5:9, tytanowa
+ * ramka, czarna obwódka i pasek gestu na dole. To nie jest ozdoba dla samej
+ * ozdoby — makieta bez rozpoznawalnej obudowy czyta się jak zrzut ekranu
+ * z komputera, a strona mówi o aplikacji, którą nosi się w kieszeni.
+ *
+ * Kolory obudowy są zapisane wprost, nie tokenami motywu: telefon to przedmiot
+ * i wygląda tak samo przy jasnym i ciemnym motywie strony. Odcienie są średnie,
+ * żeby ramka odcinała się od obu teł.
+ */
 export function Phone({ title, children }: { title: string; children: ReactNode }) {
   const t = useT();
 
   return (
-    <div className="mx-auto w-full max-w-[19rem] rounded-[2.25rem] border-[6px] border-foreground/85 bg-background shadow-2xl shadow-primary/20">
-      <div className="overflow-hidden rounded-[1.75rem]">
-        {/* Pasek aplikacji: hamburger, powitanie z tytułem, wybór języka. */}
-        <div className="grid h-14 grid-cols-[2.25rem_minmax(0,1fr)_2.25rem] items-center border-b border-border bg-card px-2">
-          <Menu className="h-5 w-5 text-foreground" />
-          <div className="min-w-0 text-center">
-            <p className="truncate text-[0.6rem] leading-tight text-muted-foreground">
-              {t("shell.greeting", { name: "Tomasz" })}
-            </p>
-            <p className="truncate text-[0.8rem] font-semibold leading-tight">{title}</p>
-          </div>
-          <span className="justify-self-end text-sm">🇵🇱</span>
-        </div>
+    <div className="relative mx-auto w-full max-w-[17.5rem]">
+      {/* Przyciski boczne — wystają spod ramki po obu stronach. */}
+      <span aria-hidden className="absolute -left-[3px] top-[5.5rem] h-6 w-[3px] rounded-l-sm bg-zinc-500" />
+      <span aria-hidden className="absolute -left-[3px] top-[8.5rem] h-10 w-[3px] rounded-l-sm bg-zinc-500" />
+      <span aria-hidden className="absolute -left-[3px] top-[12.5rem] h-10 w-[3px] rounded-l-sm bg-zinc-500" />
+      <span aria-hidden className="absolute -right-[3px] top-[10rem] h-16 w-[3px] rounded-r-sm bg-zinc-500" />
 
-        <div className="h-[26rem] space-y-2 overflow-hidden bg-background p-3">{children}</div>
+      {/* Tytanowa krawędź, a pod nią czarna obwódka ekranu. */}
+      <div className="rounded-[2.75rem] bg-linear-to-b from-zinc-400 via-zinc-600 to-zinc-400 p-[2px] shadow-2xl shadow-primary/25">
+        <div className="rounded-[2.65rem] bg-zinc-900 p-[9px]">
+          <div className="relative flex aspect-[6/13] flex-col overflow-hidden rounded-[2.1rem] bg-background">
+            {/* Pasek stanu — godzina po lewej, zasięg i bateria po prawej. */}
+            <div className="flex h-9 shrink-0 items-center justify-between px-5 text-[0.65rem] font-semibold text-foreground">
+              <span className="tabular-nums">9:41</span>
+              <span className="flex items-center gap-1">
+                <Signal className="h-3 w-3" />
+                <Wifi className="h-3 w-3" />
+                <BatteryFull className="h-3.5 w-3.5" />
+              </span>
+            </div>
+
+            {/* Wyspa: czarna pigułka wchodząca w pasek stanu, z obiektywem. */}
+            <div
+              aria-hidden
+              className="absolute left-1/2 top-[0.5rem] h-[1.35rem] w-[5.25rem] -translate-x-1/2 rounded-full bg-black"
+            >
+              <span className="absolute right-[0.45rem] top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-zinc-800 ring-1 ring-zinc-700" />
+            </div>
+
+            {/* Pasek aplikacji: hamburger, powitanie z tytułem, wybór języka. */}
+            <div className="grid h-12 shrink-0 grid-cols-[2.25rem_minmax(0,1fr)_2.25rem] items-center border-b border-border bg-card px-2">
+              <Menu className="h-5 w-5 text-foreground" />
+              <div className="min-w-0 text-center">
+                <p className="truncate text-[0.6rem] leading-tight text-muted-foreground">
+                  {t("shell.greeting", { name: "Tomasz" })}
+                </p>
+                <p className="truncate text-[0.8rem] font-semibold leading-tight">{title}</p>
+              </div>
+              <span className="justify-self-end text-sm">🇵🇱</span>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-2 overflow-hidden bg-background p-3">
+              {children}
+            </div>
+
+            {/* Pasek gestu — ostatnia rzecz, po której poznaje się ten telefon. */}
+            <div className="flex h-5 shrink-0 items-center justify-center">
+              <span className="h-1 w-24 rounded-full bg-foreground/25" />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
