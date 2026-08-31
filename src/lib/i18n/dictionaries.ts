@@ -1,8 +1,5 @@
 // Słowniki interfejsu. Polski jest źródłem prawdy — typ `Dict` wywodzi się
 // z niego, więc brakujący klucz w innym języku wywala się na typecheck.
-//
-// Zakres: ekran logowania, chrom aplikacji (nagłówek, menu, tytuły stron)
-// i dashboard. Pozostałe ekrany zostają na razie po polsku.
 import type { Locale } from "./config";
 
 const pl = {
@@ -179,6 +176,13 @@ const pl = {
   "meta.login": "Zaloguj się, aby zapisywać godziny pracy i wypłaty.",
   "meta.recovery": "Ustaw nowe hasło przy pomocy kodu odzyskiwania.",
   "meta.shared": "Przepracowane godziny i podsumowanie wyjazdu, udostępnione linkiem.",
+
+  "notFound.title": "Nie ma takiej strony",
+  "notFound.lead": "Adres jest nieaktualny albo ma literówkę. Nic nie zginęło — Twoje dane są na miejscu.",
+  "notFound.redirectHome": "Za chwilę wrócisz na stronę główną.",
+  "notFound.redirectApp": "Za chwilę wrócisz do aplikacji.",
+  "notFound.goHome": "Wróć teraz na stronę główną",
+  "notFound.goApp": "Wróć teraz do aplikacji",
 
   "settings.mustChangePassword": "Twoje hasło zostało zresetowane przez właściciela firmy. Ustaw własne hasło poniżej.",
   "settings.displayCurrency": "Waluta wyświetlania",
@@ -602,6 +606,13 @@ const de: Dict = {
   "meta.recovery": "Setze mit dem Wiederherstellungscode ein neues Passwort.",
   "meta.shared": "Arbeitsstunden und Reisezusammenfassung, per Link geteilt.",
 
+  "notFound.title": "Diese Seite gibt es nicht",
+  "notFound.lead": "Die Adresse ist veraltet oder enthält einen Tippfehler. Deine Daten sind unversehrt.",
+  "notFound.redirectHome": "Gleich geht es zurück zur Startseite.",
+  "notFound.redirectApp": "Gleich geht es zurück in die App.",
+  "notFound.goHome": "Jetzt zur Startseite",
+  "notFound.goApp": "Jetzt zur App",
+
   "settings.mustChangePassword": "Dein Passwort wurde vom Firmeninhaber zurückgesetzt. Lege unten ein eigenes fest.",
   "settings.displayCurrency": "Anzeigewährung",
   "settings.displayCurrencyHint": "Die Währung ist an deinem Konto gespeichert und gilt daher auf jedem Gerät. Die Kurse holen wir von der NBP und merken uns bei jedem Eintrag den Kurs seines Tages, damit sich die Historie nicht ändert.",
@@ -1022,6 +1033,13 @@ const uk: Dict = {
   "meta.recovery": "Установіть новий пароль за допомогою коду відновлення.",
   "meta.shared": "Відпрацьовані години та підсумок поїздки, поділені посиланням.",
 
+  "notFound.title": "Такої сторінки немає",
+  "notFound.lead": "Адреса застаріла або містить помилку. Нічого не зникло — ваші дані на місці.",
+  "notFound.redirectHome": "За мить повернемо вас на головну.",
+  "notFound.redirectApp": "За мить повернемо вас до застосунку.",
+  "notFound.goHome": "Повернутися на головну зараз",
+  "notFound.goApp": "Повернутися до застосунку зараз",
+
   "settings.mustChangePassword": "Ваш пароль скинув власник компанії. Встановіть власний нижче.",
   "settings.displayCurrency": "Валюта відображення",
   "settings.displayCurrencyHint": "Валюта збережена у вашому обліковому записі, тож діє на кожному пристрої. Курси беремо з НБП і для кожного запису запам'ятовуємо курс його дня, щоб історія не змінювалася.",
@@ -1441,6 +1459,13 @@ const en: Dict = {
   "meta.recovery": "Set a new password using your recovery code.",
   "meta.shared": "Work hours and the trip summary, shared by link.",
 
+  "notFound.title": "This page doesn't exist",
+  "notFound.lead": "The address is out of date or has a typo. Nothing is lost — your data is where you left it.",
+  "notFound.redirectHome": "Back to the home page in a moment.",
+  "notFound.redirectApp": "Back to the app in a moment.",
+  "notFound.goHome": "Go to the home page now",
+  "notFound.goApp": "Go to the app now",
+
   "settings.mustChangePassword": "Your password was reset by the company owner. Set your own below.",
   "settings.displayCurrency": "Display currency",
   "settings.displayCurrencyHint": "The currency is stored on your account, so it applies on every device. Rates come from the NBP, and each entry keeps the rate of its own day so history does not shift.",
@@ -1687,15 +1712,26 @@ const en: Dict = {
 
 export const DICTIONARIES: Record<Locale, Dict> = { pl, de, uk, en };
 
-/** `{name}` w tekście podmienia się na wartość z `vars`. */
+/**
+ * Podaje tekst interfejsu w wybranym języku.
+ *
+ * Miejsca w rodzaju `{name}` podmieniają się na wartości z `vars`. Nieznany
+ * język cofa się do polskiego zamiast wywalać stronę — `users.locale` to zwykły
+ * VarChar, więc wartość spoza listy da się w bazie zapisać.
+ *
+ * Args:
+ *     locale (Locale): Język interfejsu.
+ *     key (TranslationKey): Klucz tekstu w słowniku.
+ *     vars (Record<string, string | number>): Wartości do wstawienia.
+ *
+ * Returns:
+ *     string: Gotowy tekst do pokazania.
+ */
 export function translate(
   locale: Locale,
   key: TranslationKey,
   vars?: Record<string, string | number>,
 ): string {
-  // `?.` nie jest ozdobą: `users.locale` to zwykły VarChar bez ograniczenia,
-  // więc wartość spoza listy da się w bazie zapisać. Bez tego każda strona
-  // wywalałaby się na TypeError zamiast pokazać polski.
   const template = DICTIONARIES[locale]?.[key] ?? pl[key];
   if (!vars) return template;
   return template.replace(/\{(\w+)\}/g, (match, name: string) =>

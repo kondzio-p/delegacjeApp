@@ -1,9 +1,5 @@
-// Testy jednostkowe logiki liczbowej: godziny, przeliczanie walut, zakresy dat,
-// podsumowania podróży, CSV. Wszystko to funkcje czyste, bez bazy i bez sieci,
-// więc środowisko Node wystarczy — jsdom byłby tu tylko kosztem startu.
-//
-// Rozszerzenie `.mts`, bo plik jest modułem ESM, a `package.json` nie deklaruje
-// `"type": "module"` — bez tego Vite ostrzega przy każdym uruchomieniu.
+// Testy jednostkowe czystej logiki liczbowej — bez bazy i bez sieci, więc
+// środowisko Node wystarczy.
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({

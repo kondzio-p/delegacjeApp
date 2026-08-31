@@ -6,6 +6,16 @@ import type { ReactNode } from "react";
 import { useT } from "@/components/locale-provider";
 import { CURRENCIES, type Currency } from "@/lib/money";
 
+/**
+ * Pole formularza z podpisem nad zawartością.
+ *
+ * Args:
+ *     label (string): Podpis pola.
+ *     children (ReactNode): Kontrolka pola.
+ *
+ * Returns:
+ *     ReactNode: Pole gotowe do wstawienia w formularz.
+ */
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="min-w-0 space-y-2">
@@ -15,6 +25,17 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
+/**
+ * Przełącznik waluty kwoty.
+ *
+ * Args:
+ *     name (string): Nazwa ukrytego pola, gdy wartość ma iść z formularzem.
+ *     value (Currency): Wybrana waluta.
+ *     onChange ((c: Currency) => void): Wywołanie po zmianie wyboru.
+ *
+ * Returns:
+ *     ReactNode: Rząd przycisków z walutami.
+ */
 export function CurrencyToggle({
   name,
   value,
@@ -45,7 +66,17 @@ export function CurrencyToggle({
   );
 }
 
-/** Wysuwane okno modalne — na telefonie od dołu, na desktopie na środku. */
+/**
+ * Wysuwane okno modalne — na telefonie od dołu, na desktopie na środku.
+ *
+ * Args:
+ *     title (string): Nagłówek okna.
+ *     onClose (() => void): Zamknięcie okna.
+ *     children (ReactNode): Zawartość okna.
+ *
+ * Returns:
+ *     ReactNode: Okno modalne z przyciskiem zamknięcia.
+ */
 export function Modal({
   title,
   onClose,
@@ -83,12 +114,31 @@ export function Modal({
   );
 }
 
+/**
+ * Komunikat błędu albo potwierdzenia pod formularzem.
+ *
+ * Args:
+ *     error (string): Treść błędu.
+ *     success (string): Treść potwierdzenia.
+ *
+ * Returns:
+ *     ReactNode: Komunikat albo nic, gdy nie ma czego pokazać.
+ */
 export function FormMessage({ error, success }: { error?: string; success?: string }) {
   if (error) return <p className="text-sm font-medium text-destructive">{error}</p>;
   if (success) return <p className="text-sm font-medium text-success">{success}</p>;
   return null;
 }
 
+/**
+ * Zastępnik pokazywany, gdy lista jest pusta.
+ *
+ * Args:
+ *     children (ReactNode): Tekst wyjaśniający pustkę.
+ *
+ * Returns:
+ *     ReactNode: Kafelek z komunikatem.
+ */
 export function EmptyState({ children }: { children: ReactNode }) {
   return (
     <p className="rounded-2xl bg-card p-6 text-center text-sm text-muted-foreground">{children}</p>

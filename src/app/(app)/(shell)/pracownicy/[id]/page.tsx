@@ -12,6 +12,15 @@ export function generateMetadata(): Promise<Metadata> {
   return pageMetadata("title.employee", "meta.employee");
 }
 
+/**
+ * Karta pracownika widziana przez właściciela.
+ *
+ * Args:
+ *     params (Promise<{ id: string }>): Identyfikator pracownika ze ścieżki.
+ *
+ * Returns:
+ *     Promise<ReactNode>: Karta pracownika; obcy pracownik daje 404.
+ */
 export default async function EmployeeDetailPage({
   params,
 }: {

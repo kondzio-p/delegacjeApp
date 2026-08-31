@@ -10,6 +10,12 @@ export function generateMetadata(): Promise<Metadata> {
   return pageMetadata("nav.settings", "meta.settings");
 }
 
+/**
+ * Ustawienia konta.
+ *
+ * Returns:
+ *     Promise<ReactNode>: Zawartość ekranu.
+ */
 export default async function SettingsPage() {
   const user = await requireUser();
   const status = await getCompanyStatus(user);

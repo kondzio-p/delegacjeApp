@@ -5,8 +5,18 @@ import { useFormat } from "@/components/use-format";
 import type { Trip } from "@/lib/types";
 
 /**
- * Wybór podróży, do której należy wpis. "Bez przypisania" (puste) jest legalną
- * opcją — wpis liczy się wtedy tylko w globalnym podsumowaniu na dashboardzie.
+ * Wybór podróży, do której należy wpis.
+ *
+ * „Bez przypisania" jest legalną opcją — taki wpis liczy się tylko w globalnym
+ * podsumowaniu na pulpicie.
+ *
+ * Args:
+ *     trips (Trip[]): Podróże do wyboru.
+ *     value (string | null): Zaznaczona podróż albo brak przypisania.
+ *     onChange ((value: string | null) => void): Wywołanie po zmianie wyboru.
+ *
+ * Returns:
+ *     ReactNode: Pole wyboru podróży.
  */
 export function TripSelect({
   trips,

@@ -1,12 +1,7 @@
 import { DEFAULT_LOCALE, type Locale } from "./i18n/config";
 import { RATE_CODES, type CurrentRates, type RateCode } from "./rates";
 
-/**
- * Język interfejsu na znacznik BCP 47 dla `Intl`.
- *
- * Sam kod języka nie wystarczy: „de" bez regionu daje inny format daty niż
- * „de-DE", a przy walutach różnicę widać w miejscu symbolu i separatorach.
- */
+/** Sam kod języka nie wystarczy: „de" formatuje daty inaczej niż „de-DE". */
 const INTL_LOCALE: Record<Locale, string> = {
   pl: "pl-PL",
   de: "de-DE",
@@ -14,38 +9,55 @@ const INTL_LOCALE: Record<Locale, string> = {
   en: "en-GB",
 };
 
+/**
+ * Zamienia język interfejsu na znacznik BCP 47 dla `Intl`.
+ *
+ * Args:
+ *     locale (Locale): Język interfejsu.
+ *
+ * Returns:
+ *     string: Znacznik w rodzaju „pl-PL"; nieznany język wraca do domyślnego.
+ */
 export function intlLocale(locale: Locale = DEFAULT_LOCALE): string {
   return INTL_LOCALE[locale] ?? INTL_LOCALE[DEFAULT_LOCALE];
 }
 
-/**
- * Waluta kwoty — zapisu w bazie i wyświetlania.
- *
- * To ten sam zestaw co waluty przeliczarki. Wcześniej były to dwa osobne typy:
- * kwoty dało się zapisać tylko w EUR i PLN, a dolar istniał wyłącznie
- * w przeliczarce i w raporcie. Rodziło to niespójność — można było oglądać
- * raport w dolarach, ale nie dało się wpisać wypłaty w dolarach.
- */
+/** Waluta kwoty — ten sam zestaw dla zapisu w bazie i dla przeliczarki. */
 export type Currency = RateCode;
 
 /** Waluty, w których da się zapisać kwotę i wybrać wyświetlanie. */
 export const CURRENCIES = RATE_CODES;
 
-/** Strażnik dla wartości z formularza albo z bazy — obie bywają tekstem. */
+/**
+ * Sprawdza, czy wartość jest obsługiwaną walutą.
+ *
+ * Args:
+ *     value (unknown): Tekst z formularza albo z bazy.
+ *
+ * Returns:
+ *     boolean: True dla waluty, którą aplikacja zna.
+ */
 export function isCurrency(value: unknown): value is Currency {
   return typeof value === "string" && (RATE_CODES as readonly string[]).includes(value);
 }
 
 /**
- * Kwota w walucie wyświetlania.
+ * Przelicza kwotę na walutę wyświetlania.
  *
- * Kurs zamrożony przy wpisie (`nbpRate`) mówi, ile złotówek ta kwota była warta
- * w dniu operacji — dzięki temu suma za marzec wygląda tak samo w czerwcu.
- * Przeliczamy zawsze przez PLN, bo tabela NBP podaje kursy właśnie do złotówki.
+ * Kurs zamrożony przy wpisie mówi, ile złotówek kwota była warta w dniu
+ * operacji, więc suma za marzec wygląda tak samo w czerwcu. Bez zamrożonego
+ * kursu sięgamy po bieżący, a gdy i tego brak — oddajemy kwotę bez
+ * przeliczenia, bo lepsza liczba w oryginalnej walucie niż zero.
  *
- * Gdy zamrożonego kursu brak (wpis sprzed zmiany albo NBP nie odpowiedziało
- * przy zapisie), sięgamy po kurs bieżący. Gdy i tego nie ma — oddajemy kwotę
- * bez przeliczenia, bo lepsza liczba w oryginalnej walucie niż zero.
+ * Args:
+ *     amount (number): Kwota w walucie wpisu.
+ *     currency (Currency): Waluta wpisu.
+ *     nbpRate (number | null): Kurs zamrożony przy zapisie.
+ *     display (Currency): Waluta, w której chcemy zobaczyć kwotę.
+ *     current (CurrentRates | null): Bieżąca tabela NBP.
+ *
+ * Returns:
+ *     number: Kwota w walucie wyświetlania.
  */
 export function toDisplayAmount(
   amount: number,
@@ -67,6 +79,17 @@ export function toDisplayAmount(
   return inPln / toRate;
 }
 
+/**
+ * Formatuje kwotę razem z symbolem waluty.
+ *
+ * Args:
+ *     amount (number): Kwota do pokazania.
+ *     currency (Currency): Waluta kwoty.
+ *     locale (Locale): Język interfejsu.
+ *
+ * Returns:
+ *     string: Kwota w zapisie właściwym dla języka.
+ */
 export function formatMoney(
   amount: number,
   currency: Currency,
@@ -79,17 +102,35 @@ export function formatMoney(
   }).format(Number.isFinite(amount) ? amount : 0);
 }
 
+/**
+ * Formatuje czas pracy jako „7 h 30 min".
+ *
+ * Najpierw zaokrąglamy do pełnych minut, dopiero potem dzielimy na godziny —
+ * odwrotna kolejność dawała „7 h 60 min" dla sumy w rodzaju 7,999999.
+ *
+ * Args:
+ *     hours (number): Liczba godzin, także ułamkowa.
+ *
+ * Returns:
+ *     string: Zapis z godzinami i minutami; zero dla wartości bez sensu.
+ */
 export function formatHours(hours: number): string {
   if (!Number.isFinite(hours) || hours <= 0) return "0 h";
 
-  // Najpierw zaokrąglamy do pełnych minut, dopiero potem dzielimy na godziny.
-  // Odwrotna kolejność dawała „7 h 60 min", bo suma wielu wpisów potrafi wyjść
-  // jako 7,999999999999999 — wtedy część całkowita to 7, a reszta zaokrągla się
-  // do pełnych sześćdziesięciu minut.
   const total = Math.round(hours * 60);
   return `${Math.floor(total / 60)} h ${String(total % 60).padStart(2, "0")} min`;
 }
 
+/**
+ * Rozbija czas trwania na dni, godziny, minuty i sekundy.
+ *
+ * Args:
+ *     ms (number): Czas trwania w milisekundach.
+ *
+ * Returns:
+ *     { days: number; hours: number; minutes: number; seconds: number }:
+ *     Rozbicie gotowe do wyświetlenia w liczniku.
+ */
 export function formatDuration(ms: number): {
   days: number;
   hours: number;
@@ -105,7 +146,19 @@ export function formatDuration(ms: number): {
   };
 }
 
-/** Godziny pomiędzy dwiema godzinami HH:MM (obsługuje zmianę doby). */
+/**
+ * Liczy godziny między dwiema godzinami zegarowymi.
+ *
+ * Koniec wcześniejszy niż początek oznacza pracę przez północ, więc doba jest
+ * dodawana zamiast dawać wynik ujemny.
+ *
+ * Args:
+ *     start (string): Godzina rozpoczęcia „HH:MM".
+ *     end (string): Godzina zakończenia „HH:MM".
+ *
+ * Returns:
+ *     number: Liczba godzin, także ułamkowa.
+ */
 export function hoursBetween(start: string, end: string): number {
   const [sh = 0, sm = 0] = start.split(":").map(Number);
   const [eh = 0, em = 0] = end.split(":").map(Number);
@@ -114,6 +167,16 @@ export function hoursBetween(start: string, end: string): number {
   return diff / 60;
 }
 
+/**
+ * Formatuje datę razem z godziną.
+ *
+ * Args:
+ *     value (string): Moment w zapisie ISO.
+ *     locale (Locale): Język interfejsu.
+ *
+ * Returns:
+ *     string: Data i godzina w zapisie właściwym dla języka.
+ */
 export function formatDateTime(value: string, locale: Locale = DEFAULT_LOCALE): string {
   return new Date(value).toLocaleString(intlLocale(locale), {
     day: "2-digit",
@@ -124,6 +187,16 @@ export function formatDateTime(value: string, locale: Locale = DEFAULT_LOCALE): 
   });
 }
 
+/**
+ * Formatuje samą datę.
+ *
+ * Args:
+ *     value (string): Moment w zapisie ISO.
+ *     locale (Locale): Język interfejsu.
+ *
+ * Returns:
+ *     string: Data w zapisie właściwym dla języka.
+ */
 export function formatDate(value: string, locale: Locale = DEFAULT_LOCALE): string {
   return new Date(value).toLocaleDateString(intlLocale(locale), {
     day: "2-digit",

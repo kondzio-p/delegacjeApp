@@ -14,10 +14,17 @@ export function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * Ostatnie 12 miesięcy wstecz — tyle wystarczy do przejrzenia zespołu.
+ * Składa listę ostatnich miesięcy do wyboru na ekranie zespołu.
  *
- * Nazwy miesięcy powstają na serwerze, więc język trzeba podać wprost —
- * `useT()` tu nie sięga.
+ * Nazwy powstają na serwerze, więc język trzeba podać wprost — `useT()` tu
+ * nie sięga.
+ *
+ * Args:
+ *     locale (Locale): Język nazw miesięcy.
+ *     count (number): Ile miesięcy wstecz pokazać.
+ *
+ * Returns:
+ *     { key: string; label: string }[]: Klucze „YYYY-MM" i nazwy do pokazania.
  */
 function recentMonths(locale: Locale, count = 12): { key: string; label: string }[] {
   const now = new Date();
@@ -28,6 +35,15 @@ function recentMonths(locale: Locale, count = 12): { key: string; label: string 
   });
 }
 
+/**
+ * Ekran zespołu z wyborem miesiąca.
+ *
+ * Args:
+ *     searchParams (Promise<{ miesiac?: string }>): Wybrany miesiąc z adresu.
+ *
+ * Returns:
+ *     Promise<ReactNode>: Ekran zespołu.
+ */
 export default async function EmployeesPage({
   searchParams,
 }: {

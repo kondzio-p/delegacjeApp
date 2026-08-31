@@ -19,10 +19,25 @@ const companyName = z
 
 const employeeId = z.uuid("Nieprawidłowy pracownik");
 
+/**
+ * Pakuje komunikat błędu w stan akcji.
+ *
+ * Args:
+ *     error (string): Treść pokazywana użytkownikowi.
+ *
+ * Returns:
+ *     ActionState: Stan formularza z błędem.
+ */
 function fail(error: string): ActionState {
   return { error };
 }
 
+/**
+ * Unieważnia ekrany, na których widać skład firmy.
+ *
+ * Returns:
+ *     void: Nic — dane doczytają się przy następnym wejściu.
+ */
 function refreshCompanyViews() {
   revalidatePath("/ustawienia");
   revalidatePath("/pracownicy");
@@ -31,7 +46,20 @@ function refreshCompanyViews() {
 
 /* ------------------------------------------------------------ właściciel */
 
-/** Włączenie trybu właściciela zakłada firmę; wyłączenie ją kasuje. */
+/**
+ * Włącza albo wyłącza tryb właściciela.
+ *
+ * Włączenie zakłada firmę, wyłączenie ją kasuje — a współwłaścicielowi pozwala
+ * tylko odejść, bo cudzej firmy nie ma prawa skasować. Pracownicy zostają
+ * z kontami, tracą wyłącznie powiązanie z firmą.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function setOwnerModeAction(
   _prev: ActionState,
   formData: FormData,
@@ -67,6 +95,16 @@ export async function setOwnerModeAction(
   const parsed = companyName.safeParse(formData.get("company_name"));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Podaj nazwę firmy");
 
+  // Jedna firma na konto: bez tego współwłaściciel zakładał drugą i lądował
+  // w dwóch rolach naraz, a `requireOwner` wybierało jedną z nich losowo.
+  const coOwnership = await prisma.companyCoOwner.findFirst({
+    where: { user_id: user.id },
+    select: { company_id: true },
+  });
+  if (coOwnership) {
+    return fail("Jesteś współwłaścicielem innej firmy — najpierw z niej zrezygnuj");
+  }
+
   const nameKey = parsed.data.toLowerCase();
   const taken = await prisma.company.findFirst({
     where: { name_key: nameKey, owner_id: { not: user.id } },
@@ -95,12 +133,18 @@ export async function setOwnerModeAction(
 /* --------------------------------------------------- współwłaściciele */
 
 /**
- * Zaproszenie do współwłasności. Trafia do osoby z istniejącym kontem i czeka
- * na jej akceptację — dopóki nie kliknie, nie ma żadnego dostępu, więc
- * literówka w adresie jest nieszkodliwa.
+ * Zaprasza do współwłasności firmy.
  *
- * Przy nieznanym adresie odpowiadamy tak samo jak przy udanym zaproszeniu:
+ * Zaproszenie czeka na akceptację, więc literówka w adresie jest nieszkodliwa.
+ * Przy nieznanym adresie odpowiadamy tak samo jak przy udanym zaproszeniu —
  * nie potwierdzamy, czy dane konto istnieje.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
  */
 export async function inviteCoOwnerAction(
   _prev: ActionState,
@@ -147,6 +191,15 @@ export async function inviteCoOwnerAction(
   return sent;
 }
 
+/**
+ * Przyjmuje zaproszenie do współwłasności.
+ *
+ * Stan konta mógł się zmienić od wysłania zaproszenia, więc sprawdzamy jeszcze
+ * raz, czy zapraszany nie prowadzi już własnej firmy.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function acceptCoOwnerInviteAction(): Promise<ActionState> {
   const user = await requireUser();
 
@@ -155,6 +208,20 @@ export async function acceptCoOwnerInviteAction(): Promise<ActionState> {
     select: { company_id: true, company: { select: { name: true } } },
   });
   if (!invite) return fail("Nie znaleziono zaproszenia");
+
+  // Stan konta mógł się zmienić od wysłania zaproszenia — bez tych dwóch
+  // sprawdzeń `create` kończyło się błędem unikalności i pustym 500.
+  const ownCompany = await prisma.company.findUnique({
+    where: { owner_id: user.id },
+    select: { id: true },
+  });
+  if (ownCompany) return fail("Prowadzisz własną firmę — najpierw ją zamknij");
+
+  const already = await prisma.companyCoOwner.findFirst({
+    where: { user_id: user.id },
+    select: { company_id: true },
+  });
+  if (already) return fail("Jesteś już współwłaścicielem firmy");
 
   await prisma.$transaction([
     prisma.companyCoOwner.create({
@@ -174,6 +241,12 @@ export async function acceptCoOwnerInviteAction(): Promise<ActionState> {
   return { success: `Jesteś współwłaścicielem firmy ${invite.company.name}` };
 }
 
+/**
+ * Odrzuca zaproszenie do współwłasności.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie odrzucenia.
+ */
 export async function rejectCoOwnerInviteAction(): Promise<ActionState> {
   const user = await requireUser();
   await prisma.coOwnerInvite.deleteMany({ where: { user_id: user.id } });
@@ -181,6 +254,18 @@ export async function rejectCoOwnerInviteAction(): Promise<ActionState> {
   return { success: "Zaproszenie odrzucone" };
 }
 
+/**
+ * Usuwa współwłaściciela z firmy.
+ *
+ * Tryb właściciela spada mu tylko wtedy, gdy nie zostaje mu żadna inna firma.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function removeCoOwnerAction(
   _prev: ActionState,
   formData: FormData,
@@ -195,8 +280,15 @@ export async function removeCoOwnerAction(
   });
   if (count === 0) return fail("Nie znaleziono współwłaściciela");
 
-  // Traci tryb właściciela, bo nie ma już żadnej firmy.
-  await prisma.user.update({ where: { id: parsed.data }, data: { is_owner: false } });
+  // Tryb właściciela spada tylko wtedy, gdy nie zostaje mu żadna firma —
+  // inaczej osoba, która w międzyczasie założyła własną, traciła do niej dostęp.
+  const [ownCompany, otherCoOwnership] = await Promise.all([
+    prisma.company.findUnique({ where: { owner_id: parsed.data }, select: { id: true } }),
+    prisma.companyCoOwner.findFirst({ where: { user_id: parsed.data }, select: { company_id: true } }),
+  ]);
+  if (!ownCompany && !otherCoOwnership) {
+    await prisma.user.update({ where: { id: parsed.data }, data: { is_owner: false } });
+  }
 
   refreshCompanyViews();
   return { success: "Usunięto współwłaściciela" };
@@ -204,6 +296,16 @@ export async function removeCoOwnerAction(
 
 /* ------------------------------------------------------------- pracownik */
 
+/**
+ * Wysyła prośbę o dołączenie do firmy o podanej nazwie.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function requestJoinAction(
   _prev: ActionState,
   formData: FormData,
@@ -231,6 +333,12 @@ export async function requestJoinAction(
   return { success: `Wysłano prośbę do firmy ${company.name}. Czekaj na akceptację.` };
 }
 
+/**
+ * Anuluje własną prośbę o dołączenie.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie anulowania.
+ */
 export async function cancelJoinRequestAction(): Promise<ActionState> {
   const user = await requireUser();
   await prisma.joinRequest.deleteMany({ where: { user_id: user.id } });
@@ -238,6 +346,12 @@ export async function cancelJoinRequestAction(): Promise<ActionState> {
   return { success: "Prośba anulowana" };
 }
 
+/**
+ * Opuszcza firmę pracodawcy.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie opuszczenia.
+ */
 export async function leaveCompanyAction(): Promise<ActionState> {
   const user = await requireUser();
   await prisma.user.update({ where: { id: user.id }, data: { company_id: null } });
@@ -247,6 +361,16 @@ export async function leaveCompanyAction(): Promise<ActionState> {
 
 /* --------------------------------------------------- zarządzanie zespołem */
 
+/**
+ * Przyjmuje pracownika do firmy.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function acceptJoinRequestAction(
   _prev: ActionState,
   formData: FormData,
@@ -271,6 +395,16 @@ export async function acceptJoinRequestAction(
   return { success: "Pracownik dołączył do firmy" };
 }
 
+/**
+ * Odrzuca prośbę o dołączenie do firmy.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function rejectJoinRequestAction(
   _prev: ActionState,
   formData: FormData,
@@ -287,6 +421,16 @@ export async function rejectJoinRequestAction(
   return { success: "Prośba odrzucona" };
 }
 
+/**
+ * Usuwa pracownika z firmy, zostawiając mu konto.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function removeEmployeeAction(
   _prev: ActionState,
   formData: FormData,
@@ -305,7 +449,19 @@ export async function removeEmployeeAction(
   return { success: "Pracownik usunięty z firmy" };
 }
 
-/** Nadaje pracownikowi losowe 7-literowe hasło i zwraca je jeden raz. */
+/**
+ * Nadaje pracownikowi nowe hasło startowe.
+ *
+ * Hasło pokazujemy jeden raz właścicielowi, a stare sesje pracownika przestają
+ * działać razem ze starym hasłem.
+ *
+ * Args:
+ *     _prev (ResetPasswordState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Identyfikator pracownika.
+ *
+ * Returns:
+ *     Promise<ResetPasswordState>: Nowe hasło i imię pracownika albo błąd.
+ */
 export async function resetEmployeePasswordAction(
   _prev: ResetPasswordState,
   formData: FormData,

@@ -1,13 +1,6 @@
 "use client";
 
-// Waluta wyświetlania. Preferencja konta, nie urządzenia — leży w bazie,
-// więc przeżywa wyczyszczenie przeglądarki i wchodzi z użytkownikiem
-// na każdy jego telefon.
-//
-// Wartość początkowa przychodzi z serwera (z sesji), a zmiana idzie przez
-// akcję serwerową. Interfejs nie czeka na odpowiedź: przełącznik przestawia
-// się od razu, a `useTransition` trzyma render w tle, więc zmiana waluty jest
-// natychmiastowa mimo rundy do bazy.
+// Waluta wyświetlania — preferencja konta, nie urządzenia.
 import { createContext, useCallback, useContext, useMemo, useState, useTransition, type ReactNode } from "react";
 
 import { setDisplayCurrencyAction } from "@/lib/actions/preferences";
@@ -21,6 +14,20 @@ type SettingsContextValue = {
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
 
+/**
+ * Trzyma walutę wyświetlania i pozwala ją przełączyć.
+ *
+ * Wartość początkowa przychodzi z sesji, a zmiana idzie przez akcję serwerową.
+ * Interfejs nie czeka na odpowiedź: przełącznik przestawia się od razu,
+ * a `useTransition` trzyma render w tle.
+ *
+ * Args:
+ *     initialDisplay (string): Waluta odczytana z konta.
+ *     children (ReactNode): Poddrzewo korzystające z ustawienia.
+ *
+ * Returns:
+ *     ReactNode: Provider kontekstu ustawień.
+ */
 export function SettingsProvider({
   initialDisplay,
   children,
@@ -50,8 +57,13 @@ export function SettingsProvider({
 }
 
 /**
- * Poza providerem (np. publiczny podgląd podróży, gdzie nie ma zalogowanego
- * użytkownika) zwracamy złotówki — brak kontekstu nie może wywalić ekranu.
+ * Daje dostęp do waluty wyświetlania.
+ *
+ * Poza providerem — na przykład w publicznym podglądzie podróży — zwraca
+ * złotówki, bo brak kontekstu nie może wywalić ekranu.
+ *
+ * Returns:
+ *     SettingsContextValue: Waluta, przełącznik i znacznik zapisu.
  */
 export function useSettings(): SettingsContextValue {
   return (

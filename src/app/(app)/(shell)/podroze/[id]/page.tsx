@@ -12,6 +12,15 @@ export function generateMetadata(): Promise<Metadata> {
   return pageMetadata("title.tripDetail", "meta.tripDetail");
 }
 
+/**
+ * Ekran szczegółów jednej podróży.
+ *
+ * Args:
+ *     params (Promise<{ id: string }>): Identyfikator podróży ze ścieżki.
+ *
+ * Returns:
+ *     Promise<ReactNode>: Ekran podróży; cudza albo nieistniejąca daje 404.
+ */
 export default async function TripDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireUser();

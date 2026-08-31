@@ -58,3 +58,10 @@ describe("periodLabel", () => {
     expect(periodLabel({ from: "2026-08-01", to: "2026-08-31" })).not.toBe("sierpień 2026");
   });
 });
+
+describe("periodFromParams — dane spoza formularza", () => {
+  it("odrzuca datę o poprawnym kształcie, ale nieistniejącą", () => {
+    const now = new Date("2026-08-15T10:00:00");
+    expect(periodFromParams("2020-99-99", "2021-99-99", now)).toEqual(thisMonth(now));
+  });
+});

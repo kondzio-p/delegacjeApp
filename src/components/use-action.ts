@@ -15,10 +15,18 @@ type Options = {
 };
 
 /**
- * useActionState + potwierdzenie w toaście.
+ * Spina akcję serwerową z potwierdzeniem w toaście.
  *
- * Efekty uboczne odpalają się wewnątrz akcji, a nie w useEffect — dzięki temu
+ * Efekty uboczne odpalają się wewnątrz akcji, a nie w `useEffect` — dzięki temu
  * nie ma kaskadowych renderów ani ryzyka, że ten sam wynik zadziała dwa razy.
+ *
+ * Args:
+ *     action (Action): Akcja serwerowa przyjmująca dane formularza.
+ *     options (Options): Wywołanie po sukcesie i tryb błędu w toaście.
+ *
+ * Returns:
+ *     [ActionState, (formData: FormData) => void, boolean]: Stan, funkcja
+ *     wysyłki i znacznik trwającego żądania.
  */
 export function useAction(action: Action, options: Options = {}) {
   return useActionState<ActionState, FormData>(async (prev, formData) => {

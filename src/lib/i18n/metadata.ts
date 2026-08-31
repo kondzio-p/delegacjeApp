@@ -6,12 +6,17 @@ import { translate, type TranslationKey } from "./dictionaries";
 import { getLocale } from "./locale.server";
 
 /**
- * Tytuł i opis strony w języku użytkownika.
+ * Składa tytuł i opis strony w języku użytkownika.
  *
- * Metadane powstają na serwerze, gdzie `useT()` nie działa — język trzeba
- * odczytać z ciasteczka albo z sesji. Stąd osobny pomocnik zamiast statycznego
- * `export const metadata`: tytuł w karcie przeglądarki ma być w tym samym
- * języku co reszta interfejsu.
+ * Metadane powstają na serwerze, gdzie `useT()` nie działa, więc język trzeba
+ * odczytać z ciasteczka albo z sesji.
+ *
+ * Args:
+ *     titleKey (TranslationKey): Klucz tytułu strony.
+ *     descriptionKey (TranslationKey): Klucz opisu, gdy strona go ma.
+ *
+ * Returns:
+ *     Promise<Metadata>: Metadane gotowe dla Next.
  */
 export async function pageMetadata(
   titleKey: TranslationKey,

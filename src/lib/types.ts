@@ -1,5 +1,4 @@
-// Kształty wierszy przekazywane z serwera do komponentów klienckich.
-// Wszystko jest już zserializowane: daty jako ISO, kwoty jako number.
+// Kształty wierszy dla komponentów klienckich: daty jako ISO, kwoty jako number.
 import type { Currency } from "./money";
 
 export type Trip = {

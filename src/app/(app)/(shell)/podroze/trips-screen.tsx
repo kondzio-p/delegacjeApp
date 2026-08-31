@@ -12,6 +12,15 @@ import { createTripAction, deleteTripAction, updateTripAction } from "@/lib/acti
 import type { Trip } from "@/lib/types";
 
 /** ISO -> wartość dla <input type="datetime-local"> w czasie lokalnym. */
+/**
+ * Zamienia datę ISO na wartość dla pola „datetime-local".
+ *
+ * Args:
+ *     iso (string): Moment w zapisie ISO.
+ *
+ * Returns:
+ *     string: Zapis „YYYY-MM-DDTHH:MM" w czasie lokalnym albo pusty tekst.
+ */
 export function toLocalInput(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
@@ -21,10 +30,25 @@ export function toLocalInput(iso: string): string {
   )}`;
 }
 
+/**
+ * Podaje bieżącą chwilę w postaci dla pola „datetime-local".
+ *
+ * Returns:
+ *     string: Zapis „YYYY-MM-DDTHH:MM" w czasie lokalnym.
+ */
 export function nowLocalInput(): string {
   return toLocalInput(new Date().toISOString());
 }
 
+/**
+ * Lista podróży z formularzem nowego wyjazdu.
+ *
+ * Args:
+ *     trips (Trip[]): Podróże konta, od najnowszej.
+ *
+ * Returns:
+ *     ReactNode: Ekran podróży.
+ */
 export function TripsScreen({ trips }: { trips: Trip[] }) {
   const t = useT();
   const fmt = useFormat();

@@ -10,6 +10,12 @@ export function generateMetadata(): Promise<Metadata> {
   return pageMetadata("nav.finance", "meta.finance");
 }
 
+/**
+ * Ekran finansów: koszty i wypłaty.
+ *
+ * Returns:
+ *     Promise<ReactNode>: Zawartość ekranu.
+ */
 export default async function FinancePage() {
   const user = await requireUser();
   const [trips, expenses, payouts] = await Promise.all([

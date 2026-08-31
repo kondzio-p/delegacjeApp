@@ -1,17 +1,8 @@
 // Składanie CSV pod polskiego Excela.
-//
-// Dwie decyzje, bez których plik otwiera się źle i nikt nie wie dlaczego:
-//
-//  - separator średnik, nie przecinek. Excel w polskiej lokalizacji czyta pole
-//    "separator listy" z ustawień systemu, a tam siedzi średnik. Przy przecinku
-//    cały wiersz ląduje w jednej kolumnie.
-//  - BOM na początku pliku. Bez niego Excel czyta bajty jako Windows-1250
-//    i ogonki zamieniają się w krzaki.
-//
-// Liczby zapisujemy z przecinkiem dziesiętnym — inaczej Excel potraktuje je
-// jak tekst i nie da ich zsumować.
 
+/** Excel w polskiej lokalizacji czyta średnik; przy przecinku wiersz się zlewa. */
 const SEPARATOR = ";";
+/** Bez BOM-u Excel czyta plik jako Windows-1250 i robi krzaki z ogonków. */
 const BOM = "\uFEFF";
 /** RFC 4180 mówi o CRLF i tego trzyma się Excel. */
 const EOL = "\r\n";
@@ -21,20 +12,48 @@ export type CsvColumn<T> = {
   value: (row: T) => string | number | null | undefined;
 };
 
-/** Pole w cudzysłowie tylko wtedy, gdy naprawdę tego wymaga. */
+/** Znaki, od których arkusz czyta pole jako formułę, a nie jako tekst. */
+const FORMULA_START = /^[=+\-@\t\r]/;
+
+/** Kwota ujemna też zaczyna się od minusa, a ma zostać liczbą do zsumowania. */
+const PLAIN_NUMBER = /^-?\d+(?:[.,]\d+)?$/;
+
+/**
+ * Pole gotowe do wklejenia w wiersz CSV.
+ *
+ * Liczby dostają przecinek dziesiętny, żeby arkusz umiał je zsumować. Tekst
+ * zaczynający się od znaku formuły poprzedzamy apostrofem — Excel pokazuje
+ * wtedy zwykły napis zamiast go wykonywać. Cudzysłów dokładamy tylko wtedy,
+ * gdy zawartość naprawdę tego wymaga.
+ *
+ * Args:
+ *     value (string | number | null | undefined): Zawartość komórki.
+ *
+ * Returns:
+ *     string: Pole w postaci bezpiecznej dla arkusza.
+ */
 function escapeField(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return "";
 
-  const text =
-    typeof value === "number"
-      ? Number.isFinite(value)
-        ? String(value).replace(".", ",")
-        : ""
-      : value;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? String(value).replace(".", ",") : "";
+  }
 
+  const risky = FORMULA_START.test(value) && !PLAIN_NUMBER.test(value);
+  const text = risky ? `'${value}` : value;
   return /[";\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
+/**
+ * Składa wiersze w gotowy dokument CSV.
+ *
+ * Args:
+ *     rows (readonly T[]): Dane do wypisania, po jednym wierszu na element.
+ *     columns (readonly CsvColumn<T>[]): Nagłówki i sposób odczytu komórek.
+ *
+ * Returns:
+ *     string: Dokument z BOM-em, średnikami i końcami wiersza CRLF.
+ */
 export function toCsv<T>(rows: readonly T[], columns: readonly CsvColumn<T>[]): string {
   const lines = [
     columns.map((column) => escapeField(column.header)).join(SEPARATOR),
@@ -44,7 +63,15 @@ export function toCsv<T>(rows: readonly T[], columns: readonly CsvColumn<T>[]): 
   return BOM + lines.join(EOL) + EOL;
 }
 
-/** Kwota do arkusza: dwa miejsca po przecinku, bez symbolu waluty. */
+/**
+ * Zapisuje kwotę w postaci, którą arkusz zsumuje.
+ *
+ * Args:
+ *     value (number): Kwota do zapisania.
+ *
+ * Returns:
+ *     string: Dwa miejsca po przecinku, bez symbolu waluty.
+ */
 export function csvAmount(value: number): string {
   return (Number.isFinite(value) ? value : 0).toFixed(2).replace(".", ",");
 }

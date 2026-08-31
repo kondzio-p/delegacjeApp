@@ -65,6 +65,16 @@ type CompanyStatus = {
   coOwnedCompanyName: string | null;
 };
 
+/**
+ * Ustawienia konta: profil, firma, waluta, język i prawa użytkownika.
+ *
+ * Args:
+ *     user (SessionUser): Zalogowane konto.
+ *     status (CompanyStatus): Stan przynależności do firm.
+ *
+ * Returns:
+ *     ReactNode: Ekran ustawień.
+ */
 export function SettingsScreen({
   user,
   status,
@@ -129,10 +139,16 @@ export function SettingsScreen({
 }
 
 /**
- * Lista kategorii kosztów. Usunięcie pozycji nie rusza istniejących wpisów —
- * kategoria jest w nich tekstem, więc stary koszt dalej pokazuje swoją nazwę
- * i wchodzi do podsumowania. Zmiana nazwy przenosi natomiast również wpisy,
- * bo tego oczekuje ktoś, kto poprawia literówkę.
+ * Sekcja z listą kategorii kosztów.
+ *
+ * Usunięcie pozycji nie rusza istniejących wpisów, ale zmiana nazwy przenosi
+ * też je — tego oczekuje ktoś, kto poprawia literówkę.
+ *
+ * Args:
+ *     categories (string[]): Kategorie tego konta.
+ *
+ * Returns:
+ *     ReactNode: Sekcja ustawień z listą i formularzem.
  */
 function CategoriesSection({ categories }: { categories: string[] }) {
   const t = useT();
@@ -267,9 +283,16 @@ function RemoveCategoryButton({ category }: { category: string }) {
 }
 
 /**
- * Współwłaściciele firmy. Zaproszenie trafia do istniejącego konta i czeka
- * na akceptację — bez niej zaproszony nie ma żadnego dostępu, więc literówka
- * w adresie jest nieszkodliwa. Zarządzać może wyłącznie założyciel.
+ * Sekcja współwłaścicieli firmy.
+ *
+ * Zaproszenie czeka na akceptację, więc literówka w adresie jest nieszkodliwa.
+ * Zarządzać listą może wyłącznie założyciel.
+ *
+ * Args:
+ *     status (CompanyStatus): Stan przynależności konta do firm.
+ *
+ * Returns:
+ *     ReactNode: Sekcja ustawień ze współwłasnością i zaproszeniami.
  */
 function CoOwnersSection({ status }: { status: CompanyStatus }) {
   const t = useT();
@@ -393,12 +416,22 @@ function RemoveCoOwnerButton({ userId, name }: { userId: string; name: string })
   );
 }
 
-/** Dzień w nazwie pobieranego pliku. */
+/**
+ * Podaje dzisiejszy dzień do nazwy pobieranego pliku.
+ *
+ * Returns:
+ *     string: Dzień w formacie „YYYY-MM-DD".
+ */
 function dzisiaj(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** Zgoda, eksport własnych danych i usunięcie konta — obowiązki z RODO. */
+/**
+ * Sekcja praw użytkownika: eksport danych i usunięcie konta.
+ *
+ * Returns:
+ *     ReactNode: Sekcja ustawień z przyciskami eksportu i usunięcia konta.
+ */
 function PrivacySection() {
   const t = useT();
   const [deleteState, deleteAction, deletePending] = useAction(deleteMyAccountAction);
@@ -424,8 +457,16 @@ function PrivacySection() {
   }
 
   /**
-   * Dwa arkusze pobierane osobnymi przyciskami, a nie oba naraz: przeglądarki
-   * pytają o zgodę przy drugim pliku z rzędu i łatwo to przeoczyć.
+   * Pobiera jeden z arkuszy z danymi konta.
+   *
+   * Osobne przyciski zamiast obu plików naraz: przeglądarki pytają o zgodę
+   * przy drugim pliku z rzędu i łatwo to przeoczyć.
+   *
+   * Args:
+   *     kind ("transactions" | "hours"): Który arkusz pobrać.
+   *
+   * Returns:
+   *     Promise<void>: Nic — plik ląduje w pobranych.
    */
   async function exportCsv(kind: "transactions" | "hours") {
     setExportingCsv(kind);
@@ -676,8 +717,7 @@ function CompanySection({ user, status }: { user: SessionUser; status: CompanySt
   const [joinState, joinAction, joinPending] = useAction(requestJoinAction);
   const [wantsOwner, setWantsOwner] = useState(user.is_owner);
 
-  // Współwłaściciel niczego nie kasuje — może tylko odejść, i komunikat musi
-  // to mówić wprost, bo akcja zachowuje się inaczej niż u założyciela.
+  // Współwłaściciel niczego nie kasuje — może tylko odejść, i tak brzmi opis.
   const isCoOwner = status.coOwnedCompanyName !== null;
   const hasCompany = status.ownCompanyName !== null;
 
@@ -822,7 +862,17 @@ function CompanySection({ user, status }: { user: SessionUser; status: CompanySt
   );
 }
 
-/** Przycisk dla akcji bez formularza (bez argumentów). */
+/**
+ * Przycisk uruchamiający akcję bez formularza.
+ *
+ * Args:
+ *     action (() => Promise<ActionState>): Akcja serwerowa bez argumentów.
+ *     label (string): Napis na przycisku.
+ *     className (string): Dodatkowe klasy wyglądu.
+ *
+ * Returns:
+ *     ReactNode: Przycisk pokazujący wynik akcji w toaście.
+ */
 function SimpleActionButton({
   action,
   label,

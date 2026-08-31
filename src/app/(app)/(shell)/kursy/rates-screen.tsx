@@ -8,6 +8,12 @@ import { useRates } from "@/components/rates-provider";
 import { Field } from "@/components/ui";
 import { RATE_CODES, rateToPln, type RateCode } from "@/lib/rates";
 
+/**
+ * Przeliczarka walut na bieżącej tabeli NBP.
+ *
+ * Returns:
+ *     ReactNode: Ekran kursów z przelicznikiem.
+ */
 export function RatesScreen() {
   const t = useT();
   const current = useRates();

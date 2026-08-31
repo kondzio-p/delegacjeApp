@@ -22,6 +22,18 @@ import { isoDay, printDocument } from "@/lib/print";
 import { summarizeTrip } from "@/lib/trip-summary";
 import type { Expense, Payout, Trip, WorkEntry } from "@/lib/types";
 
+/**
+ * Szczegóły jednej podróży razem z jej podsumowaniem.
+ *
+ * Args:
+ *     trip (Trip): Oglądana podróż.
+ *     workEntries (WorkEntry[]): Wpisy godzin konta.
+ *     expenses (Expense[]): Koszty konta.
+ *     payouts (Payout[]): Wypłaty konta.
+ *
+ * Returns:
+ *     ReactNode: Ekran szczegółów podróży.
+ */
 export function TripDetailScreen({
   trip,
   workEntries,

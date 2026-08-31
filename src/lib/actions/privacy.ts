@@ -20,10 +20,13 @@ export type ExportState = ActionState & { json?: string };
 export type CsvExportState = ActionState & { hours?: string; transactions?: string };
 
 /**
- * Komplet danych użytkownika w jednym pliku.
+ * Składa komplet danych użytkownika w jeden plik.
  *
  * JSON, bo RODO (art. 20) mówi o formacie ustrukturyzowanym i nadającym się
- * do odczytu maszynowego. Zwracamy tekst, a plik składa już przeglądarka.
+ * do odczytu maszynowego. Zwracamy sam tekst, a plik składa już przeglądarka.
+ *
+ * Returns:
+ *     Promise<ExportState>: Zawartość pliku JSON albo komunikat błędu.
  */
 export async function exportMyDataAction(): Promise<ExportState> {
   const user = await requireUser();
@@ -90,11 +93,13 @@ export async function exportMyDataAction(): Promise<ExportState> {
 }
 
 /**
- * Te same dane co w eksporcie JSON, ale w postaci, którą księgowa otworzy
- * w arkuszu. JSON zostaje dla RODO — czytelny maszynowo, ale nie dla człowieka.
+ * Składa te same dane w postaci do otwarcia w arkuszu.
  *
  * Dwa osobne pliki zamiast jednego: godziny i pieniądze mają inne kolumny,
- * a sklejone w jeden arkusz z kolumną „typ" nie nadają się do sumowania.
+ * a sklejone w jeden arkusz nie nadają się do sumowania.
+ *
+ * Returns:
+ *     Promise<CsvExportState>: Dwa arkusze CSV albo komunikat błędu.
  */
 export async function exportMyDataCsvAction(): Promise<CsvExportState> {
   const user = await requireUser();
@@ -160,8 +165,8 @@ export async function exportMyDataCsvAction(): Promise<CsvExportState> {
     { header: "Wyjazd", value: (row) => tripName(row.trip_id) },
   ]);
 
-  // Koszty i wypłaty w jednym arkuszu, bo mają te same kolumny i ten sam sens:
-  // pieniądze, które przeszły przez wyjazd. Znak przy kwocie mówi w którą stronę.
+  // Koszty i wypłaty w jednym arkuszu — znak przy kwocie mówi, w którą stronę
+  // poszły pieniądze.
   type Transakcja = {
     typ: string;
     dzien: string;
@@ -215,12 +220,20 @@ export async function exportMyDataCsvAction(): Promise<CsvExportState> {
 }
 
 /**
- * Usunięcie konta przez anonimizację.
+ * Usuwa konto przez anonimizację.
  *
- * Dane osobowe znikają, ale **godziny i wypłaty zostają** — to zapis rozliczenia
- * z firmą, dzięki czemu raport za miniony okres dalej się zgadza po odejściu
- * pracownika. Koszty kasujemy, bo są prywatne i nikomu poza właścicielem konta
- * niepotrzebne.
+ * Dane osobowe znikają, ale godziny i wypłaty zostają — to zapis rozliczenia
+ * z firmą, dzięki czemu raport za miniony okres zgadza się po odejściu
+ * pracownika. Koszty kasujemy, bo są prywatne. Firmę założyciela przejmuje
+ * najstarszy współwłaściciel, a gdy takiego nie ma — firma znika.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Pole „confirm" z przepisanym słowem potwierdzenia.
+ *
+ * Returns:
+ *     Promise<ActionState>: Komunikat błędu; usunięcie kończy się
+ *     przekierowaniem na ekran logowania.
  */
 export async function deleteMyAccountAction(
   _prev: ActionState,
@@ -232,8 +245,6 @@ export async function deleteMyAccountAction(
     return { error: `Przepisz słowo ${DELETE_CONFIRMATION}, żeby potwierdzić` };
   }
 
-  // Założyciel firmy: przekazujemy ją najstarszemu współwłaścicielowi,
-  // a gdy takiego nie ma — firma znika, a pracownicy tracą tylko powiązanie.
   const ownCompany = await prisma.company.findUnique({
     where: { owner_id: user.id },
     select: { id: true },
@@ -262,8 +273,7 @@ export async function deleteMyAccountAction(
   }
 
   const anonymousEmail = `usuniete-${randomUUID()}@usuniete.local`;
-  // Hasło i kod zastępujemy losowymi śmieciami — nikt się nimi nie zaloguje,
-  // a flaga is_deleted i tak blokuje wejście.
+  // Hasło i kod zastępujemy losowymi śmieciami; wejście blokuje i tak is_deleted.
   const [passwordHash, recoveryHash] = await Promise.all([
     hashSecret(randomUUID()),
     hashSecret(randomUUID()),

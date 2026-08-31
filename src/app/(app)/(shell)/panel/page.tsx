@@ -10,6 +10,12 @@ export function generateMetadata(): Promise<Metadata> {
   return pageMetadata("nav.dashboard", "meta.dashboard");
 }
 
+/**
+ * Pulpit zalogowanego użytkownika.
+ *
+ * Returns:
+ *     Promise<ReactNode>: Zawartość ekranu.
+ */
 export default async function DashboardPage() {
   const user = await requireUser();
   const [trips, workEntries, expenses, payouts] = await Promise.all([

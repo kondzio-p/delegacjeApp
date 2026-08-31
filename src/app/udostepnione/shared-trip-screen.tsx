@@ -17,6 +17,19 @@ import { summarizeTrip } from "@/lib/trip-summary";
 import type { SharedTripPayload } from "@/lib/queries";
 import type { CurrentRates } from "@/lib/rates";
 
+/**
+ * Publiczny podgląd udostępnionej podróży.
+ *
+ * Ekran stoi poza powłoką aplikacji, więc walutę wyświetlania trzyma we
+ * własnym stanie, a kursy dostaje propsem.
+ *
+ * Args:
+ *     payload (SharedTripPayload): Dane udostępnionej podróży.
+ *     rates (CurrentRates | null): Bieżąca tabela NBP.
+ *
+ * Returns:
+ *     ReactNode: Ekran podglądu, gotowy także do druku.
+ */
 export function SharedTripScreen({
   payload,
   rates,
@@ -137,6 +150,15 @@ export function SharedTripScreen({
   );
 }
 
+/**
+ * Komunikat o niedostępnym linku.
+ *
+ * Args:
+ *     message (string): Wyjaśnienie, dlaczego nie ma czego pokazać.
+ *
+ * Returns:
+ *     ReactNode: Ekran z komunikatem.
+ */
 export function Unavailable({ message }: { message: string }) {
   return (
     <Layout>

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 
-import { dayToMoment, momentToDay } from "@/lib/day";
+import { dayToMoment, isCalendarDay, momentToDay } from "@/lib/day";
 import { prisma } from "@/lib/db";
 import { CURRENCIES, type Currency } from "@/lib/money";
 import { getRateForDate } from "@/lib/nbp";
@@ -13,48 +13,84 @@ import { requireOwner, requireUser } from "@/lib/session";
 import type { ActionState } from "@/lib/types";
 
 const uuid = z.uuid("Nieprawidłowy identyfikator");
-// Zestaw walut trzyma `money.ts` — enum budowany z niego nie rozjedzie się
-// z interfejsem przy dokładaniu kolejnej waluty.
+/** Enum z `money.ts` nie rozjedzie się z interfejsem przy nowej walucie. */
 const currency = z.enum(CURRENCIES);
 const localDateTime = z.string().min(1, "Podaj datę i godzinę");
-const dayString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Nieprawidłowa data");
-/**
- * Dzień operacji — wsteczny wolno, z przyszłości nie.
- *
- * Doba zapasu, bo „dziś" zależy od strefy: serwer stoi w UTC, a użytkownik
- * o 00:30 w Polsce ma już następny dzień i jego „dzisiaj" wyprzedzałoby
- * serwerowe. Ta kontrola ma odsiewać pomyłki w rodzaju roku 2030, a nie
- * karać za wpisywanie kosztów po północy.
- */
+const dayString = z.string().refine(isCalendarDay, "Nieprawidłowa data");
+/** Dzień operacji z dobą zapasu — „dziś" zależy od strefy użytkownika. */
 const pastDay = dayString.refine(
   (day) => day <= isoDate(new Date(Date.now() + 24 * 60 * 60 * 1000)),
   "Data nie może być z przyszłości",
 );
-const timeString = z.string().regex(/^\d{2}:\d{2}$/, "Nieprawidłowa godzina");
+// Zakres godzin, nie sam kształt: „99:99" przechodziło przez `\d{2}:\d{2}`,
+// a `hoursBetween` liczyło z tego prawdziwe godziny do raportu firmy.
+const timeString = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Nieprawidłowa godzina");
 
-/** Puste pole formularza to brak wartości, nie pusty string. */
+/**
+ * Zamienia puste pole formularza na brak wartości.
+ *
+ * Args:
+ *     value (FormDataEntryValue | null): Surowa wartość z formularza.
+ *
+ * Returns:
+ *     string | null: Przycięty tekst albo null, gdy pole było puste.
+ */
 function optionalText(value: FormDataEntryValue | null): string | null {
   const text = typeof value === "string" ? value.trim() : "";
   return text.length > 0 ? text : null;
 }
 
-/** Kwoty wpisuje się i z kropką, i z przecinkiem. */
+/**
+ * Czyta kwotę wpisaną z kropką albo z przecinkiem.
+ *
+ * Args:
+ *     value (FormDataEntryValue | null): Surowa wartość z formularza.
+ *
+ * Returns:
+ *     number: Kwota albo NaN, gdy pole nie jest liczbą.
+ */
 function parseAmount(value: FormDataEntryValue | null): number {
   const parsed = Number.parseFloat(String(value ?? "").replace(",", "."));
   return Number.isFinite(parsed) ? parsed : NaN;
 }
 
+/**
+ * Pakuje komunikat błędu w stan akcji.
+ *
+ * Args:
+ *     error (string): Treść pokazywana użytkownikowi.
+ *
+ * Returns:
+ *     ActionState: Stan formularza z błędem.
+ */
 function fail(error: string): ActionState {
   return { error };
 }
 
+/**
+ * Wyciąga pierwszy komunikat z błędu walidacji.
+ *
+ * Args:
+ *     error (z.ZodError): Wynik nieudanego `safeParse`.
+ *
+ * Returns:
+ *     string: Komunikat dla użytkownika.
+ */
 function firstIssue(error: z.ZodError): string {
   return error.issues[0]?.message ?? "Nieprawidłowe dane";
 }
 
 /**
- * Ustala, czyje dane są modyfikowane. Bez `employee_id` to zalogowany użytkownik;
- * z `employee_id` — pracownik z firmy zalogowanego właściciela (i tylko taki).
+ * Ustala, czyje dane są modyfikowane.
+ *
+ * Bez `employee_id` chodzi o zalogowanego użytkownika; z `employee_id` —
+ * o pracownika z firmy zalogowanego właściciela i tylko takiego.
+ *
+ * Args:
+ *     formData (FormData): Dane formularza akcji.
+ *
+ * Returns:
+ *     Promise<string>: Identyfikator właściciela zmienianych danych.
  */
 async function resolveTargetUser(formData: FormData): Promise<string> {
   const employeeId = formData.get("employee_id");
@@ -76,7 +112,17 @@ async function resolveTargetUser(formData: FormData): Promise<string> {
   return employee.id;
 }
 
-/** Sprawdza, że podróż należy do właściciela wpisu. Null = bez przypisania. */
+/**
+ * Sprawdza, że podróż należy do właściciela wpisu.
+ *
+ * Args:
+ *     userId (string): Właściciel zapisywanego wpisu.
+ *     value (FormDataEntryValue | null): Identyfikator podróży z formularza.
+ *
+ * Returns:
+ *     Promise<string | null>: Identyfikator podróży albo null przy braku
+ *     przypisania; cudza podróż kończy się wyjątkiem.
+ */
 async function resolveTripId(userId: string, value: FormDataEntryValue | null) {
   if (typeof value !== "string" || value === "") return null;
 
@@ -92,22 +138,30 @@ async function resolveTripId(userId: string, value: FormDataEntryValue | null) {
   return trip.id;
 }
 
+/**
+ * Unieważnia cache wszystkich ekranów po zapisie.
+ *
+ * Returns:
+ *     void: Nic — Next przeliczy strony przy następnym wejściu.
+ */
 function refreshAll() {
   revalidatePath("/", "layout");
 }
 
-
 /**
- * Kurs NBP zamrażany przy kwocie — ile PLN była warta jednostka tej waluty
- * w dniu operacji. Dzięki temu podsumowanie za marzec wygląda tak samo
- * w czerwcu, niezależnie od tego, co kurs zrobił w międzyczasie.
+ * Zamraża kurs NBP przy zapisywanej kwocie.
  *
  * Dzień bierzemy z formularza, nie z zegara: paragon z poniedziałku wpisany
- * w środę ma dostać kurs poniedziałkowy. `getRateForDate` sam cofa się do
- * ostatniej publikacji, więc weekend i święto załatwiają się same.
+ * w środę dostaje kurs poniedziałkowy, dzięki czemu podsumowanie za marzec
+ * wygląda tak samo w czerwcu. Brak odpowiedzi z NBP nie może wywalić zapisu.
  *
- * Brak odpowiedzi z NBP nie może wywalić zapisu: zwracamy null, a odczyt
- * sięgnie wtedy po kurs bieżący.
+ * Args:
+ *     currency (Currency): Waluta kwoty.
+ *     day (string): Dzień operacji w formacie „YYYY-MM-DD".
+ *
+ * Returns:
+ *     Promise<{ nbp_rate: number | null; nbp_rate_date: string | null }>:
+ *     Kurs i data tabeli; null, gdy NBP nie odpowiedziało.
  */
 async function freezeRate(currency: Currency, day: string) {
   if (currency === "PLN") return { nbp_rate: 1, nbp_rate_date: day };
@@ -120,6 +174,18 @@ async function freezeRate(currency: Currency, day: string) {
 
 /* ---------------------------------------------------------------- podróże */
 
+/**
+ * Zakłada nową podróż zalogowanego użytkownika.
+ *
+ * Podróż bez daty powrotu jest traktowana jako trwająca.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function createTripAction(
   _prev: ActionState,
   formData: FormData,
@@ -152,6 +218,16 @@ export async function createTripAction(
   return { success: "Dodano podróż" };
 }
 
+/**
+ * Zapisuje zmienione daty podróży.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function updateTripAction(
   _prev: ActionState,
   formData: FormData,
@@ -187,6 +263,18 @@ export async function updateTripAction(
   return { success: "Zapisano zmiany" };
 }
 
+/**
+ * Kasuje podróż razem z jej udostępnieniem.
+ *
+ * Wpisy godzin i kwoty zostają — tracą tylko przypisanie do wyjazdu.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function deleteTripAction(
   _prev: ActionState,
   formData: FormData,
@@ -204,6 +292,16 @@ export async function deleteTripAction(
   return { success: "Usunięto podróż" };
 }
 
+/**
+ * Włącza albo wyłącza publiczny link do podróży.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function setTripShareAction(
   _prev: ActionState,
   formData: FormData,
@@ -231,11 +329,30 @@ const categoryName = z
   .min(1, "Podaj nazwę kategorii")
   .max(30, "Nazwa kategorii może mieć najwyżej 30 znaków");
 
-/** Porównanie bez względu na wielkość liter — „Paliwo" i „paliwo" to jedno. */
+/**
+ * Porównuje nazwy kategorii bez względu na wielkość liter.
+ *
+ * Args:
+ *     a (string): Pierwsza nazwa.
+ *     b (string): Druga nazwa.
+ *
+ * Returns:
+ *     boolean: True, gdy „Paliwo" i „paliwo" mają być jedną kategorią.
+ */
 function sameCategory(a: string, b: string): boolean {
   return a.localeCompare(b, "pl", { sensitivity: "accent" }) === 0;
 }
 
+/**
+ * Dokłada kategorię kosztów do listy konta.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function addExpenseCategoryAction(
   _prev: ActionState,
   formData: FormData,
@@ -261,9 +378,17 @@ export async function addExpenseCategoryAction(
 }
 
 /**
- * Usunięcie kategorii z listy. Istniejące koszty zostają nietknięte — kategoria
- * jest w nich tekstem, nie kluczem obcym, więc dalej pokazują swoją nazwę
- * i wchodzą do podsumowania.
+ * Usuwa kategorię z listy konta.
+ *
+ * Istniejące koszty zostają nietknięte — kategoria jest w nich tekstem, nie
+ * kluczem obcym, więc dalej pokazują swoją nazwę i wchodzą do podsumowania.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Pole „name" z nazwą kategorii.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
  */
 export async function removeExpenseCategoryAction(
   _prev: ActionState,
@@ -288,8 +413,16 @@ export async function removeExpenseCategoryAction(
 }
 
 /**
- * Zmiana nazwy przenosi też istniejące koszty — tego oczekuje ktoś, kto
- * poprawia literówkę albo doprecyzowuje nazwę.
+ * Zmienia nazwę kategorii razem z istniejącymi kosztami.
+ *
+ * Tego oczekuje ktoś, kto poprawia literówkę albo doprecyzowuje nazwę.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Pola „from" i „to" z nazwami kategorii.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
  */
 export async function renameExpenseCategoryAction(
   _prev: ActionState,
@@ -329,6 +462,16 @@ export async function renameExpenseCategoryAction(
 
 /* ---------------------------------------------------------------- godziny */
 
+/**
+ * Zapisuje wpis godzin — własny albo pracownika.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function createWorkEntryAction(
   _prev: ActionState,
   formData: FormData,
@@ -362,6 +505,16 @@ export async function createWorkEntryAction(
   }
 }
 
+/**
+ * Zapisuje zmiany we wpisie godzin.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function updateWorkEntryAction(
   _prev: ActionState,
   formData: FormData,
@@ -400,6 +553,16 @@ export async function updateWorkEntryAction(
   }
 }
 
+/**
+ * Kasuje wpis godzin.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function deleteWorkEntryAction(
   _prev: ActionState,
   formData: FormData,
@@ -424,6 +587,16 @@ export async function deleteWorkEntryAction(
 
 /* ---------------------------------------------------------------- finanse */
 
+/**
+ * Zapisuje koszt razem z kursem NBP z dnia wydatku.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function createExpenseAction(
   _prev: ActionState,
   formData: FormData,
@@ -437,8 +610,8 @@ export async function createExpenseAction(
         name: z.string().trim().min(1, "Podaj nazwę kosztu").max(200),
         amount: z.number("Podaj kwotę"),
         currency,
-        // Kategoria musi pochodzić z listy tego konta — inaczej podrobiony
-        // formularz mógłby wstawić dowolny tekst.
+        // Kategoria musi pochodzić z listy tego konta, inaczej podrobiony
+        // formularz wstawiłby dowolny tekst.
         category: z.enum(user.expense_categories as [string, ...string[]], {
           message: "Nieznana kategoria kosztu",
         }),
@@ -473,11 +646,18 @@ export async function createExpenseAction(
 }
 
 /**
- * Edycja kosztu.
+ * Zapisuje zmiany w koszcie.
  *
- * Kurs przeliczamy na nowo **tylko** gdy zmieniła się waluta albo dzień —
- * poprawianie literówki w nazwie nie ma prawa podmienić kursu zamrożonego
- * przy pierwotnym zapisie, bo to zmieniłoby kwoty w gotowych podsumowaniach.
+ * Kurs przeliczamy na nowo tylko wtedy, gdy zmieniła się waluta albo dzień —
+ * poprawianie literówki w nazwie nie ma prawa ruszyć kursu zamrożonego przy
+ * pierwotnym zapisie, bo to zmieniłoby kwoty w gotowych podsumowaniach.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Pola kosztu razem z jego identyfikatorem.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
  */
 export async function updateExpenseAction(
   _prev: ActionState,
@@ -535,6 +715,16 @@ export async function updateExpenseAction(
     return fail(error instanceof Error ? error.message : "Nie udało się zapisać kosztu");
   }
 }
+/**
+ * Kasuje koszt.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function deleteExpenseAction(
   _prev: ActionState,
   formData: FormData,
@@ -552,6 +742,16 @@ export async function deleteExpenseAction(
   return { success: "Usunięto koszt" };
 }
 
+/**
+ * Zapisuje wypłatę razem z kursem NBP z dnia wypłaty.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function createPayoutAction(
   _prev: ActionState,
   formData: FormData,
@@ -589,7 +789,19 @@ export async function createPayoutAction(
   }
 }
 
-/** Edycja wypłaty. Zasada przeliczania kursu jak przy koszcie. */
+/**
+ * Zapisuje zmiany w wypłacie.
+ *
+ * Kurs przeliczamy na tych samych zasadach co przy koszcie: tylko po zmianie
+ * waluty albo dnia.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Pola wypłaty razem z jej identyfikatorem.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function updatePayoutAction(
   _prev: ActionState,
   formData: FormData,
@@ -636,6 +848,16 @@ export async function updatePayoutAction(
     return fail(error instanceof Error ? error.message : "Nie udało się zapisać wypłaty");
   }
 }
+/**
+ * Kasuje wypłatę.
+ *
+ * Args:
+ *     _prev (ActionState): Poprzedni stan formularza, nieużywany.
+ *     formData (FormData): Dane wysłane z formularza.
+ *
+ * Returns:
+ *     Promise<ActionState>: Potwierdzenie albo komunikat błędu.
+ */
 export async function deletePayoutAction(
   _prev: ActionState,
   formData: FormData,

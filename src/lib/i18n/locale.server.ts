@@ -1,5 +1,4 @@
-// Odczyt języka po stronie serwera. Dzięki temu pierwszy render leci już we
-// właściwym języku — bez mignięcia polskim tekstem przed hydracją.
+// Odczyt języka na serwerze — pierwszy render leci od razu we właściwym języku.
 import "server-only";
 
 import { cookies } from "next/headers";
@@ -10,14 +9,13 @@ import { getCurrentUser } from "../session";
 import { normalizeLocale, LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE, type Locale } from "./config";
 
 /**
- * Zalogowanemu decyduje ustawienie z konta, wylogowanemu — ciasteczko.
+ * Podaje język bieżącego żądania.
  *
- * Kolejność ma znaczenie: ktoś, kto wybrał niemiecki na telefonie, po wejściu
- * z laptopa (gdzie ciasteczka nie ma) dostaje niemiecki, bo język idzie
- * za kontem, a nie za przeglądarką.
+ * Zalogowanemu decyduje ustawienie z konta, wylogowanemu ciasteczko: ktoś, kto
+ * wybrał niemiecki na telefonie, dostaje niemiecki także na laptopie.
  *
- * `cache` — layout i strony pytają w tym samym żądaniu, a `getCurrentUser`
- * jest cache'owany osobno, więc baza odpowiada raz niezależnie od liczby pytań.
+ * Returns:
+ *     Promise<Locale>: Język do pierwszego renderu.
  */
 export const getLocale = cache(async (): Promise<Locale> => {
   const user = await getCurrentUser();
@@ -30,8 +28,14 @@ export const getLocale = cache(async (): Promise<Locale> => {
 /**
  * Zapisuje język w ciasteczku.
  *
- * Nie httpOnly, bo to preferencja wyglądu, a nie sekret. Wartość spoza listy
- * jest ignorowana — do ciasteczka trafia wyłącznie znany kod języka.
+ * Nie httpOnly, bo to preferencja wyglądu, a nie sekret. Do ciasteczka trafia
+ * wyłącznie znany kod języka.
+ *
+ * Args:
+ *     value (unknown): Wybrany język.
+ *
+ * Returns:
+ *     Promise<void>: Nic — efektem jest ciasteczko w odpowiedzi.
  */
 export async function rememberLocale(value: unknown): Promise<void> {
   const jar = await cookies();

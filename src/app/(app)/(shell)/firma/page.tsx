@@ -12,6 +12,15 @@ export function generateMetadata(): Promise<Metadata> {
   return pageMetadata("nav.company", "meta.company");
 }
 
+/**
+ * Ekran firmy: zestawienie za wybrany okres.
+ *
+ * Args:
+ *     searchParams (Promise<{ od?: string; do?: string }>): Zakres dat z adresu.
+ *
+ * Returns:
+ *     Promise<ReactNode>: Ekran firmy z raportem i kafelkami.
+ */
 export default async function CompanyPage({
   searchParams,
 }: {
@@ -21,8 +30,7 @@ export default async function CompanyPage({
   const { company, role } = await requireOwner();
   const period = periodFromParams(od, to);
 
-  // Kursy najpierw: raport używa ich jako awaryjnych dla wypłat bez własnego
-  // kursu, więc musi je dostać od razu.
+  // Kursy najpierw — raport używa ich dla wypłat bez własnego kursu.
   const rates = await getCurrentRates();
   const [rows, employees] = await Promise.all([
     getCompanyPayrollReport(company.id, period.from, period.to, rates),

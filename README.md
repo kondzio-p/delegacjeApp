@@ -162,10 +162,17 @@ src/lib/session.ts         bramki dostępu: requireUser / requireOwner / findMyE
 src/lib/db.ts              klient Prisma (adapter node-postgres)
 src/lib/queries.ts         odczyty dla server components
 src/lib/actions/           zapisy: auth.ts, company.ts, data.ts
+src/lib/rate-limit.ts      limit prób logowania, odzyskiwania i rejestracji
 src/lib/trip-summary.ts    liczenie podsumowań i realnych stawek godzinowych
 src/app/(app)/             ekrany po zalogowaniu
 src/app/udostepnione/      publiczny podgląd wyjazdu spod linku
+src/app/not-found.tsx      ekran 404 wracający po trzech sekundach tam, skąd
+                           użytkownik przyszedł
 ```
+
+**Bezpieczeństwo.** `safetyplan.md` opisuje zakres i wyniki audytu: co zostało
+sprawdzone, co poprawione i co świadomie zostawione. Nagłówki bezpieczeństwa
+(CSP, HSTS, `frame-ancestors`) ustawia `next.config.ts`.
 
 **Logo i ikony.** Źródłem jest `assets/logo-source.png` — PNG z kanałem alfa.
 `assets/logo.svg` jest zapasem: to nie wektor, tylko ten sam rysunek opakowany
@@ -228,3 +235,6 @@ Po pierwszym zalogowaniu wejdź w **Ustawienia → Konto** i wpisz prawdziwy adr
 - Kursu nikt nie ustawia ręcznie: pochodzi z NBP i jest zamrażany przy każdym
   koszcie i każdej wypłacie, więc podsumowanie za miniony miesiąc nie zmienia
   się wraz z kursem dnia.
+- Limit prób logowania liczy się w pamięci procesu. Na jednej instancji działa
+  jak trzeba, ale przy kilku instancjach naraz każda liczy po swojemu —
+  docelowo licznik powinien mieszkać w bazie.

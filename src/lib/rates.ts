@@ -1,8 +1,5 @@
 // Stałe i typy kursów walut — współdzielone przez serwer i komponenty klienckie.
-// Samo pobieranie z NBP siedzi w `nbp.ts`, który jest `server-only`.
-//
-// Tabela A NBP podaje kursy średnie jako ZŁOTÓWKI ZA JEDNĄ JEDNOSTKĘ waluty.
-// Samego PLN w tabeli nie ma, bo jest walutą bazową — stąd `PLN_RATE = 1`.
+// Tabela A NBP podaje złotówki za jedną jednostkę waluty, stąd `PLN_RATE = 1`.
 
 /** Waluty obce, które obsługujemy. PLN jest bazą i nie ma własnego kursu. */
 export const FOREIGN_CODES = ["EUR", "USD"] as const;
@@ -27,25 +24,58 @@ export type CurrentRates = {
   rates: Record<ForeignCode, number>;
 };
 
+/**
+ * Sprawdza, czy kod należy do obsługiwanych walut obcych.
+ *
+ * Args:
+ *     value (string): Kod waluty z tabeli NBP albo z formularza.
+ *
+ * Returns:
+ *     boolean: True dla waluty, którą aplikacja zna.
+ */
 export function isForeignCode(value: string): value is ForeignCode {
   return (FOREIGN_CODES as readonly string[]).includes(value);
 }
 
-/** `YYYY-MM-DD` z obiektu Date, w czasie lokalnym. */
+/**
+ * Zapisuje datę jako „YYYY-MM-DD" w czasie lokalnym.
+ *
+ * Args:
+ *     date (Date): Data do zapisania.
+ *
+ * Returns:
+ *     string: Dzień w formacie ISO, bez części czasowej.
+ */
 export function isoDate(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-/** Kurs waluty do PLN z bieżącej tabeli. Null = nieznany. */
+/**
+ * Podaje kurs waluty do złotówki z bieżącej tabeli.
+ *
+ * Args:
+ *     code (RateCode): Waluta, o którą pytamy.
+ *     rates (Record<ForeignCode, number> | undefined): Kursy z tabeli NBP.
+ *
+ * Returns:
+ *     number | null: Złotówki za jednostkę albo null, gdy kursu brak.
+ */
 export function rateToPln(code: RateCode, rates: Record<ForeignCode, number> | undefined) {
   if (code === "PLN") return PLN_RATE;
   return rates?.[code] ?? null;
 }
 
 /**
- * Przelicza kwotę między walutami przez PLN jako walutę pośrednią.
- * Oba kursy to złotówki za jednostkę waluty.
+ * Przelicza kwotę między walutami przez złotówkę.
+ *
+ * Args:
+ *     amount (number): Kwota w walucie źródłowej.
+ *     fromRate (number): Złotówki za jednostkę waluty źródłowej.
+ *     toRate (number): Złotówki za jednostkę waluty docelowej.
+ *
+ * Returns:
+ *     number: Kwota w walucie docelowej; zero przy danych bez sensu.
  */
 export function convertVia(amount: number, fromRate: number, toRate: number): number {
   if (!Number.isFinite(amount) || toRate <= 0) return 0;

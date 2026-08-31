@@ -10,11 +10,13 @@ import { tripLabel } from "@/lib/trip-summary";
 import type { Trip } from "@/lib/types";
 
 /**
- * Formattery związane z bieżącym językiem.
+ * Zbiera formattery związane z bieżącym językiem.
  *
- * Bez tego każde wywołanie musiałoby przewlekać `locale` z kontekstu przez
- * kolejne argumenty — kilkadziesiąt miejsc, w których łatwo o pominięcie
- * i o ekran mieszający formaty dwóch języków.
+ * Bez tego każde wywołanie musiałoby przewlekać język przez kolejne argumenty —
+ * kilkadziesiąt miejsc, w których łatwo o ekran mieszający dwa formaty.
+ *
+ * Returns:
+ *     object: Formattery kwot, dat, okresów, miesięcy i etykiet podróży.
  */
 export function useFormat() {
   const { locale, t } = useLocale();

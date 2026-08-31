@@ -40,6 +40,18 @@ function monthKeyOfEntry(entry: WorkEntry): string {
 }
 
 
+/**
+ * Karta pracownika: godziny pogrupowane po wyjazdach i wypłaty.
+ *
+ * Args:
+ *     employee (Employee): Pracownik, którego kartę oglądamy.
+ *     entries (WorkEntry[]): Wpisy godzin pracownika.
+ *     trips (Trip[]): Podróże pracownika.
+ *     payouts (Payout[]): Wypłaty wydane temu pracownikowi.
+ *
+ * Returns:
+ *     ReactNode: Ekran karty pracownika, gotowy także do druku.
+ */
 export function EmployeeDetailScreen({
   employee,
   entries,
@@ -239,8 +251,17 @@ export function EmployeeDetailScreen({
 }
 
 /**
- * Wypłaty pracownika. Właściciel je widzi, bo sam je wydał — inaczej niż koszty,
- * które pracownik ponosi z własnej kieszeni i które zostają prywatne.
+ * Sekcja wypłat pracownika.
+ *
+ * Właściciel je widzi, bo sam je wydał — inaczej niż koszty, które pracownik
+ * ponosi z własnej kieszeni i które zostają prywatne.
+ *
+ * Args:
+ *     payouts (Payout[]): Wypłaty wydane pracownikowi.
+ *     month (string): Wybrany miesiąc albo znacznik „wszystkie".
+ *
+ * Returns:
+ *     ReactNode: Sekcja z listą wypłat.
  */
 function PayoutsSection({ payouts, month }: { payouts: Payout[]; month: string }) {
   const t = useT();

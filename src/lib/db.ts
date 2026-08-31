@@ -1,9 +1,15 @@
-// Klient Prisma dla Prisma Postgres. Wyłącznie kod serwerowy (server components,
-// server actions, route handlers) — nigdy w komponencie z "use client".
+// Klient Prisma. Wyłącznie kod serwerowy — nigdy w komponencie z "use client".
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "@/generated/prisma/client";
 
+/**
+ * Tworzy klienta Prismy na połączeniu z bazy z `DATABASE_URL`.
+ *
+ * Returns:
+ *     PrismaClient: Klient gotowy do zapytań; brak zmiennej środowiskowej
+ *     kończy się wyjątkiem, bo bez bazy aplikacja nie ma czego serwować.
+ */
 function createPrismaClient(): PrismaClient {
   const connectionString = process.env.DATABASE_URL;
 

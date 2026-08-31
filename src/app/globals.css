@@ -269,6 +269,32 @@
   }
 }
 
+/* ------------------------------------------------------------------- 404 */
+
+/* Pasek odliczający przejście z ekranu 404. Czas musi zgadzać się
+   z REDIRECT_MS w `not-found-screen.tsx`. */
+@keyframes progress-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@utility animate-progress {
+  transform-origin: left;
+  animation: progress-fill 3s linear both;
+}
+
+/* Bez animacji pasek jest po prostu pełny — odliczanie i tak trwa. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-progress {
+    animation: none;
+    transform: none;
+  }
+}
+
 /* ------------------------------------------------------------------ druk */
 
 /* Blok widoczny wyłącznie na wydruku / w PDF (nagłówek dokumentu). */

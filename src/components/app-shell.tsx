@@ -37,8 +37,16 @@ const EMPLOYEES_NAV = { href: "/pracownicy", labelKey: "nav.employees", icon: Us
 const COMPANY_NAV = { href: "/firma", labelKey: "nav.company", icon: Building2 } as const;
 
 /**
- * Tytuł w nagłówku bierze się ze ścieżki, a nie z propsa strony — dzięki temu
- * powłoka siedzi w layoucie i nie przeładowuje się przy zmianie widoku.
+ * Dobiera tytuł nagłówka do bieżącej ścieżki.
+ *
+ * Tytuł bierze się ze ścieżki, a nie z propsa strony — dzięki temu powłoka
+ * siedzi w layoucie i nie przeładowuje się przy zmianie widoku.
+ *
+ * Args:
+ *     pathname (string): Ścieżka bieżącego widoku.
+ *
+ * Returns:
+ *     TranslationKey: Klucz tytułu do przetłumaczenia.
  */
 function titleKeyFor(pathname: string): TranslationKey {
   if (pathname === DASHBOARD_PATH) return "nav.dashboard";
@@ -54,6 +62,16 @@ function titleKeyFor(pathname: string): TranslationKey {
   return "nav.dashboard";
 }
 
+/**
+ * Powłoka aplikacji: nagłówek, wysuwane menu i wybór języka.
+ *
+ * Args:
+ *     user (SessionUser): Zalogowane konto — decyduje o pozycjach menu.
+ *     children (ReactNode): Zawartość bieżącego ekranu.
+ *
+ * Returns:
+ *     ReactNode: Powłoka z zamontowanym ekranem.
+ */
 export function AppShell({ user, children }: { user: SessionUser; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -67,9 +85,8 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
     SETTINGS_NAV,
   ];
 
-  // Menu jest wysunięte poza ekran, więc automatyczny prefetch <Link> (oparty na
-  // widoczności) nigdy się nie odpala. Grzejemy trasy ręcznie, gdy tylko szuflada
-  // się otworzy — zanim użytkownik zdąży kliknąć, RSC jest już pobrany.
+  // Menu jest poza ekranem, więc automatyczny prefetch <Link> nigdy się nie
+  // odpala — trasy grzejemy ręcznie przy otwarciu szuflady.
   useEffect(() => {
     if (!open) return;
     for (const item of nav) router.prefetch(item.href);

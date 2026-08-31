@@ -17,15 +17,22 @@ import type { ActionState } from "@/lib/types";
 const EMPTY: ActionState = {};
 const EMPTY_CODE: CodeState = {};
 
+/**
+ * Karta logowania i rejestracji z przełącznikiem trybu.
+ *
+ * Args:
+ *     initialMode ("login" | "register"): Zakładka otwarta na starcie.
+ *
+ * Returns:
+ *     ReactNode: Ekran uwierzytelniania.
+ */
 export function AuthForm({ initialMode = "login" }: { initialMode?: "login" | "register" }) {
   const [mode, setMode] = useState<"login" | "register">(initialMode);
   const t = useT();
 
   return (
-    // Wybór języka ma własny wiersz zamiast pozycji absolutnej: LanguagePicker
-    // ustawia sobie `relative`, więc dokładanie `absolute` przez className nic
-    // nie dawało (w CSS Tailwinda `.relative` jest później i wygrywa) — przycisk
-    // zostawał w przepływie i spychał wyśrodkowaną kartę w bok.
+    // Wybór języka ma własny wiersz: LanguagePicker ustawia sobie `relative`,
+    // więc dokładanie `absolute` przez className nic nie daje.
     <div className="flex min-h-screen flex-col bg-background px-4 py-6">
       <header className="flex justify-end">
         <LanguagePicker />

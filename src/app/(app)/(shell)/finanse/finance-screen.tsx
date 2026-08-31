@@ -22,6 +22,18 @@ import { defaultTripId } from "@/lib/trip-summary";
 import type { Expense, Payout, Trip } from "@/lib/types";
 
 
+/**
+ * Ekran finansów: koszty i wypłaty w jednej historii.
+ *
+ * Args:
+ *     trips (Trip[]): Podróże do przypisania wpisów.
+ *     expenses (Expense[]): Koszty konta.
+ *     payouts (Payout[]): Wypłaty konta.
+ *     categories (string[]): Kategorie kosztów tego konta.
+ *
+ * Returns:
+ *     ReactNode: Ekran finansów z formularzami i listą transakcji.
+ */
 export function FinanceScreen({
   trips,
   expenses,
@@ -47,9 +59,8 @@ export function FinanceScreen({
         id: e.id,
         tripId: e.trip_id,
         title: e.name,
-        // Sama data, bez godziny: godzina zakupu nie niesie informacji, a przy
-        // dacie wstecznej pokazywałaby południe UTC — czyli coś, czego
-        // użytkownik nigdy nie wpisał.
+        // Sama data: godzina zakupu nic nie wnosi, a przy dacie wstecznej
+        // pokazywałaby południe UTC, czyli coś, czego nikt nie wpisał.
         subtitle: `${e.category} · ${fmt.date(e.spent_at)}`,
         amount: Number(e.amount),
         currency: e.currency,
@@ -178,9 +189,19 @@ export function FinanceScreen({
 }
 
 /**
- * Jeden formularz w dwóch rolach: bez `expense` dodaje, z nim edytuje.
- * Dzięki temu pola i walidacja nie mogą rozjechać się między dodawaniem
+ * Formularz kosztu w dwóch rolach: bez `expense` dodaje, z nim edytuje.
+ *
+ * Jeden komponent, żeby pola i walidacja nie rozjechały się między dodawaniem
  * a poprawianiem.
+ *
+ * Args:
+ *     trips (Trip[]): Podróże do przypisania kosztu.
+ *     categories (string[]): Kategorie kosztów tego konta.
+ *     expense (Expense): Koszt do edycji; brak oznacza dodawanie.
+ *     onSaved (() => void): Wywołanie po udanym zapisie.
+ *
+ * Returns:
+ *     ReactNode: Formularz w oknie modalnym.
  */
 function ExpenseForm({
   trips,

@@ -11,6 +11,16 @@ export function generateMetadata(): Promise<Metadata> {
   return pageMetadata("auth.login", "meta.login");
 }
 
+/**
+ * Ekran logowania i rejestracji.
+ *
+ * Args:
+ *     searchParams (Promise<{ tryb?: string }>): Tryb wybrany na stronie
+ *         powitalnej.
+ *
+ * Returns:
+ *     Promise<ReactNode>: Karta uwierzytelniania; zalogowany leci na pulpit.
+ */
 export default async function LoginPage({
   searchParams,
 }: {
@@ -20,10 +30,8 @@ export default async function LoginPage({
   const user = await getSessionUser();
   if (user) redirect(DASHBOARD_PATH);
 
-  // Strona powitalna prowadzi tu dwoma przyciskami. Tryb przychodzi
-  // w adresie, żeby przycisk zakładania konta nie lądował na zakładce
-  // logowania. Czytamy go na serwerze i podajemy propsem — useSearchParams
-  // po stronie klienta wymagałoby opakowania w Suspense.
+  // Tryb przychodzi w adresie, żeby przycisk zakładania konta nie lądował
+  // na zakładce logowania.
   const { tryb } = await searchParams;
 
   return <AuthForm initialMode={tryb === "rejestracja" ? "register" : "login"} />;

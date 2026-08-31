@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dayToMoment, momentToDay, todayLocal } from "./day";
+import { dayToMoment, isCalendarDay, momentToDay, todayLocal } from "./day";
 
 describe("dayToMoment", () => {
   it("umieszcza dzień w południe UTC", () => {
@@ -43,5 +43,24 @@ describe("momentToDay", () => {
 describe("todayLocal", () => {
   it("formatuje datę lokalną z wiodącymi zerami", () => {
     expect(todayLocal(new Date(2026, 0, 5, 23, 30))).toBe("2026-01-05");
+  });
+});
+
+describe("isCalendarDay", () => {
+  it("przyjmuje istniejący dzień", () => {
+    expect(isCalendarDay("2026-08-31")).toBe(true);
+    expect(isCalendarDay("2024-02-29")).toBe(true);
+  });
+
+  it("odrzuca dzień o poprawnym kształcie, ale nieistniejący", () => {
+    expect(isCalendarDay("2020-99-99")).toBe(false);
+    expect(isCalendarDay("2026-02-30")).toBe(false);
+    expect(isCalendarDay("2025-02-29")).toBe(false);
+  });
+
+  it("odrzuca inne kształty", () => {
+    expect(isCalendarDay("2026-8-1")).toBe(false);
+    expect(isCalendarDay("wczoraj")).toBe(false);
+    expect(isCalendarDay("")).toBe(false);
   });
 });

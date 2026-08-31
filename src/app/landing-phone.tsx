@@ -1,19 +1,8 @@
 "use client";
 
-// Makiety ekranów aplikacji na stronę powitalną.
-//
-// To odwzorowanie, nie zrzuty ekranu: te same tokeny kolorów, te same ikony
-// i ten sam układ kart co w prawdziwych komponentach, ale bez sesji i bez bazy.
-// Zrzut byłby martwy — nie przeskaluje się, nie przetłumaczy i rozjedzie się
-// z aplikacją przy najbliższej zmianie stylów.
-//
-// Etykiety biorą się ze słownika, w większości z tych samych kluczy, których
-// używają prawdziwe ekrany. Dzięki temu Ukrainiec oglądający stronę widzi
-// aplikację po ukraińsku, a nie polskie zrzuty z ukraińskim opisem obok.
-//
-// Liczby NIE są wymyślone: pochodzą z konta pokazowego `pracownik1@godzio-demo.pl`
-// i zgadzają się ze sobą tak, jak policzyłaby je aplikacja
-// (zysk = wypłaty − koszty, stawka = wypłaty ÷ godziny).
+// Makiety ekranów aplikacji na stronę powitalną — odwzorowanie, nie zrzuty:
+// te same tokeny i ikony co w prawdziwych komponentach, etykiety ze słownika,
+// a liczby z konta pokazowego, więc zgadzają się ze sobą.
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -58,14 +47,16 @@ const COMPANY = "Kowalski Logistyka";
 /**
  * Obudowa telefonu — sam chrom, zawartość wstawia wywołujący.
  *
- * Kształt odwzorowuje iPhone'a z wyspą: proporcja ekranu 19,5:9, tytanowa
- * ramka, czarna obwódka i pasek gestu na dole. To nie jest ozdoba dla samej
- * ozdoby — makieta bez rozpoznawalnej obudowy czyta się jak zrzut ekranu
- * z komputera, a strona mówi o aplikacji, którą nosi się w kieszeni.
+ * Makieta bez rozpoznawalnej obudowy czyta się jak zrzut z komputera, a strona
+ * mówi o aplikacji noszonej w kieszeni. Kolory ramki są zapisane wprost, nie
+ * tokenami motywu: telefon to przedmiot i wygląda tak samo w obu motywach.
  *
- * Kolory obudowy są zapisane wprost, nie tokenami motywu: telefon to przedmiot
- * i wygląda tak samo przy jasnym i ciemnym motywie strony. Odcienie są średnie,
- * żeby ramka odcinała się od obu teł.
+ * Args:
+ *     title (string): Tytuł pokazywany w pasku aplikacji.
+ *     children (ReactNode): Zawartość ekranu telefonu.
+ *
+ * Returns:
+ *     ReactNode: Obudowa z paskiem stanu, wyspą i paskiem gestu.
  */
 export function Phone({ title, children }: { title: string; children: ReactNode }) {
   const t = useT();
@@ -129,7 +120,19 @@ export function Phone({ title, children }: { title: string; children: ReactNode 
 
 /* ----------------------------------------------------------- elementy */
 
-/** Kafelek statystyki — odpowiednik `StatCard` z aplikacji. */
+/**
+ * Kafelek statystyki — odpowiednik `StatCard` z aplikacji.
+ *
+ * Args:
+ *     icon (ReactNode): Ikona kafelka.
+ *     label (string): Podpis nad wartością.
+ *     value (string): Wartość do pokazania.
+ *     tone ("success" | "destructive"): Kolor wartości, gdy ma być wyróżniona.
+ *     wide (boolean): Rozciąga kafelek na całą szerokość siatki.
+ *
+ * Returns:
+ *     ReactNode: Kafelek makiety.
+ */
 function Stat({
   icon,
   label,
@@ -485,8 +488,7 @@ export function ReportCard() {
     { name: "Piotr Wiśniewski", hours: 90, paid: 5601.0 },
   ];
 
-  // Same liczby, bez symbolu waluty — walutę niesie nagłówek kolumny,
-  // dokładnie tak jak w prawdziwym raporcie.
+  // Same liczby — walutę niesie nagłówek kolumny, jak w prawdziwym raporcie.
   const number = (value: number) =>
     new Intl.NumberFormat(intlLocale(fmt.locale), {
       minimumFractionDigits: 2,

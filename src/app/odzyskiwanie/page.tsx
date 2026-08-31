@@ -7,6 +7,12 @@ export function generateMetadata(): Promise<Metadata> {
   return pageMetadata("meta.recoveryTitle", "meta.recovery");
 }
 
+/**
+ * Ekran odzyskiwania hasła.
+ *
+ * Returns:
+ *     ReactNode: Zawartość ekranu.
+ */
 export default function RecoverPage() {
   return <RecoverForm />;
 }

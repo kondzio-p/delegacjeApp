@@ -37,6 +37,15 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+/**
+ * Publiczna strona udostępnionej podróży.
+ *
+ * Args:
+ *     searchParams (Promise<{ t?: string }>): Token udostępnienia z adresu.
+ *
+ * Returns:
+ *     Promise<ReactNode>: Podgląd podróży albo komunikat o nieaktywnym linku.
+ */
 export default async function SharedTripPage({
   searchParams,
 }: {

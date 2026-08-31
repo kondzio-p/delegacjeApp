@@ -10,6 +10,12 @@ export function generateMetadata(): Promise<Metadata> {
   return pageMetadata("nav.trips", "meta.trips");
 }
 
+/**
+ * Lista podróży.
+ *
+ * Returns:
+ *     Promise<ReactNode>: Zawartość ekranu.
+ */
 export default async function TripsPage() {
   const user = await requireUser();
   const trips = await getTrips(user.id);

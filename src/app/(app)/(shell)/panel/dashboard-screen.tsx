@@ -24,6 +24,20 @@ import type { Expense, Payout, Trip, WorkEntry } from "@/lib/types";
 /** "all" = wszystko razem, bez podziału na podróże. */
 type Scope = "all" | string;
 
+/**
+ * Pulpit: czas, pieniądze i stawki dla wybranego zakresu.
+ *
+ * Zakresem jest albo pojedyncza podróż, albo wszystko razem.
+ *
+ * Args:
+ *     trips (Trip[]): Podróże konta.
+ *     workEntries (WorkEntry[]): Wpisy godzin.
+ *     expenses (Expense[]): Koszty.
+ *     payouts (Payout[]): Wypłaty.
+ *
+ * Returns:
+ *     ReactNode: Ekran pulpitu.
+ */
 export function DashboardScreen({
   trips,
   workEntries,

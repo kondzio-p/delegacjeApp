@@ -3,11 +3,7 @@ import { formatDate, hoursBetween, toDisplayAmount, type Currency } from "./mone
 import type { CurrentRates } from "./rates";
 import type { Expense, Payout, Trip, WorkEntry } from "./types";
 
-/**
- * Kategorie nadawane nowemu kontu. Lista każdego użytkownika żyje dalej
- * w `users.expense_categories` — tutaj jest już tylko punkt startowy,
- * zdublowany jako DEFAULT kolumny w migracji.
- */
+/** Punkt startowy nowego konta; dalej lista żyje w `users.expense_categories`. */
 export const DEFAULT_EXPENSE_CATEGORIES = [
   "Paliwo",
   "Jedzenie",
@@ -16,11 +12,18 @@ export const DEFAULT_EXPENSE_CATEGORIES = [
 ] as const;
 
 /**
- * Etykieta podróży używana w selectach i na listach.
+ * Składa etykietę podróży do selectów i list.
  *
  * Napis „w toku" przychodzi z zewnątrz, a nie ze słownika: ten moduł liczy
- * i formatuje, a tłumaczeniem zajmuje się warstwa, która zna kontekst Reacta.
- * Domyślny polski trzyma przy życiu wywołania serwerowe (eksport CSV).
+ * i formatuje, a tłumaczeniem zajmuje się warstwa znająca kontekst Reacta.
+ *
+ * Args:
+ *     trip (Pick<Trip, "departure_at" | "return_at">): Daty wyjazdu i powrotu.
+ *     options ({ locale?: Locale; ongoing?: string }): Język i napis dla
+ *         podróży bez powrotu.
+ *
+ * Returns:
+ *     string: Zakres dat w rodzaju „01.08.2026 – 15.08.2026".
  */
 export function tripLabel(
   trip: Pick<Trip, "departure_at" | "return_at">,
@@ -32,13 +35,30 @@ export function tripLabel(
   return `${from} – ${to}`;
 }
 
-/** Domyślny wybór w formularzach: podróż w toku, a jak nie ma — najnowsza. */
+/**
+ * Wybiera podróż podpowiadaną w formularzach.
+ *
+ * Args:
+ *     trips (Trip[]): Podróże konta, od najnowszej.
+ *
+ * Returns:
+ *     string | null: Podróż w toku, a jak takiej nie ma — najnowsza.
+ */
 export function defaultTripId(trips: Trip[]): string | null {
   const ongoing = trips.find((t) => !t.return_at);
   if (ongoing) return ongoing.id;
   return trips[0]?.id ?? null;
 }
 
+/**
+ * Rozbija godziny na pełne doby i resztę.
+ *
+ * Args:
+ *     hours (number): Liczba godzin, także ułamkowa.
+ *
+ * Returns:
+ *     { days: number; hours: number }: Doby i zaokrąglone godziny reszty.
+ */
 export function splitDaysHours(hours: number) {
   const safe = Number.isFinite(hours) && hours > 0 ? hours : 0;
   return { days: Math.floor(safe / 24), hours: Math.round(safe % 24) };
@@ -57,10 +77,22 @@ export type TransactionRow = {
 export type TripSummary = ReturnType<typeof summarizeTrip>;
 
 /**
- * Sumy z gotowego zestawu wpisów, w walucie wyświetlania.
+ * Liczy sumy z gotowego zestawu wpisów, w walucie wyświetlania.
  *
- * Wyłącznie fakty: przepracowany czas, pieniądze które wpłynęły i te, które
- * wyszły. Żadnych kwot naliczanych ze stawek — godziny nie niosą już pieniędzy.
+ * Wyłącznie fakty: przepracowany czas, pieniądze, które wpłynęły, i te, które
+ * wyszły. Kategorie bierzemy z samych kosztów, a nie ze stałej listy, więc
+ * wpisy z kategorii już nieużywanej nie znikają z podsumowania.
+ *
+ * Args:
+ *     workEntries (WorkEntry[]): Wpisy godzin wchodzące do sumy.
+ *     expenses (Expense[]): Koszty wchodzące do sumy.
+ *     payouts (Payout[]): Wypłaty wchodzące do sumy.
+ *     display (Currency): Waluta wyświetlania.
+ *     rates (CurrentRates | null): Bieżąca tabela NBP dla wpisów bez kursu.
+ *     locale (Locale): Język decydujący o kolejności kategorii.
+ *
+ * Returns:
+ *     object: Godziny, sumy wypłat i kosztów, zysk oraz koszty po kategoriach.
  */
 export function totalsOf({
   workEntries,
@@ -86,8 +118,6 @@ export function totalsOf({
   const totalPayouts = payouts.reduce((s, p) => s + toDisplay(p), 0);
   const totalExpenses = expenses.reduce((s, e) => s + toDisplay(e), 0);
 
-  // Kategorie bierzemy z samych kosztów, a nie ze stałej listy — dzięki temu
-  // wpisy z kategorii już nieużywanej nie znikają z podsumowania.
   const categories = [...new Set(expenses.map((e) => e.category))].sort((a, b) =>
     a.localeCompare(b, locale ?? DEFAULT_LOCALE),
   );
@@ -110,9 +140,24 @@ export function totalsOf({
 /**
  * Liczy podsumowanie jednej podróży.
  *
- * Przynależność wpisu do podróży wynika WYŁĄCZNIE z kolumny trip_id — daty
- * służą już tylko do policzenia długości wyjazdu. Dzięki temu nakładające się
- * podróże i różnice stref czasowych nie mają wpływu na wynik.
+ * Przynależność wpisu do podróży wynika wyłącznie z kolumny `trip_id` — daty
+ * służą tylko do policzenia długości wyjazdu, więc nakładające się podróże
+ * i różnice stref czasowych nie mają wpływu na wynik.
+ *
+ * Args:
+ *     tripId (string): Podróż, o którą chodzi.
+ *     departureAt (string): Moment wyjazdu w zapisie ISO.
+ *     returnAt (string | null): Moment powrotu albo null przy podróży w toku.
+ *     workEntries (WorkEntry[]): Wszystkie wpisy godzin konta.
+ *     expenses (Expense[]): Wszystkie koszty konta.
+ *     payouts (Payout[]): Wszystkie wypłaty konta.
+ *     display (Currency): Waluta wyświetlania.
+ *     rates (CurrentRates | null): Bieżąca tabela NBP.
+ *     now (number): Chwila odniesienia dla podróży w toku.
+ *     locale (Locale): Język interfejsu.
+ *
+ * Returns:
+ *     object: Sumy, długość wyjazdu, stawki godzinowe i lista transakcji.
  */
 export function summarizeTrip({
   tripId,
@@ -198,11 +243,21 @@ export function summarizeTrip({
 }
 
 /**
- * Realne stawki — wyliczone z tego, co faktycznie wpłynęło, a nie z deklaracji.
+ * Liczy realne stawki godzinowe z tego, co faktycznie wpłynęło.
  *
- * `actualHourly` odpowiada na „ile wyszło za godzinę przy warsztacie",
- * `hourlyLife` na „ile wyszło za godzinę spędzoną na wyjeździe" — ta druga
- * liczy cały czas poza domem, także wolny, i odejmuje poniesione koszty.
+ * `actualHourly` odpowiada na „ile wyszło za godzinę przy pracy", `hourlyLife`
+ * na „ile wyszło za godzinę spędzoną na wyjeździe" — ta druga liczy cały czas
+ * poza domem, także wolny, i odejmuje poniesione koszty.
+ *
+ * Args:
+ *     totalPayouts (number): Suma wypłat w walucie wyświetlania.
+ *     totalExpenses (number): Suma kosztów w walucie wyświetlania.
+ *     workedHours (number): Przepracowane godziny.
+ *     tripHours (number): Godziny trwania wyjazdu.
+ *
+ * Returns:
+ *     { profit: number; actualHourly: number; hourlyLife: number }: Zysk
+ *     i obie stawki; zero tam, gdzie nie ma czym dzielić.
  */
 export function hourlyRates({
   totalPayouts,

@@ -10,6 +10,12 @@ export function generateMetadata(): Promise<Metadata> {
   return pageMetadata("nav.hours", "meta.hours");
 }
 
+/**
+ * Ekran godzin pracy.
+ *
+ * Returns:
+ *     Promise<ReactNode>: Zawartość ekranu.
+ */
 export default async function WorkPage() {
   const user = await requireUser();
   const [trips, entries] = await Promise.all([getTrips(user.id), getWorkEntries(user.id)]);

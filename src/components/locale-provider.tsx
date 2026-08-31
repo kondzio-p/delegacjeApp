@@ -17,12 +17,19 @@ type LocaleContextValue = {
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
 /**
- * Język żyje w trzech miejscach naraz i każde ma inne zadanie: stan Reacta daje
- * natychmiastowe przełączenie (cały tłumaczony interfejs to komponenty klienckie),
- * kolumna w bazie przenosi wybór na inne urządzenie, a ciasteczko pozwala
- * serwerowi wyrenderować właściwy język zanim pozna sesję.
+ * Trzyma język interfejsu i pozwala go przełączyć.
  *
- * Zapis idzie przez akcję serwerową, ale interfejs na nią nie czeka.
+ * Stan Reacta daje natychmiastowe przełączenie, kolumna w bazie przenosi wybór
+ * na inne urządzenie, a ciasteczko pozwala serwerowi wyrenderować właściwy
+ * język, zanim pozna sesję. Zapis idzie przez akcję serwerową, ale interfejs
+ * na nią nie czeka.
+ *
+ * Args:
+ *     initialLocale (Locale): Język odczytany na serwerze.
+ *     children (ReactNode): Poddrzewo korzystające z kontekstu.
+ *
+ * Returns:
+ *     ReactNode: Provider kontekstu języka.
  */
 export function LocaleProvider({
   initialLocale,
@@ -55,8 +62,12 @@ export function LocaleProvider({
 }
 
 /**
- * Poza providerem (np. w testach albo w komponencie renderowanym samodzielnie)
- * zwraca polski — brak kontekstu nie może wywalić ekranu.
+ * Daje dostęp do języka i funkcji tłumaczącej.
+ *
+ * Poza providerem zwraca polski — brak kontekstu nie może wywalić ekranu.
+ *
+ * Returns:
+ *     LocaleContextValue: Bieżący język, przełącznik i tłumaczenie.
  */
 export function useLocale(): LocaleContextValue {
   const context = useContext(LocaleContext);
@@ -68,7 +79,12 @@ export function useLocale(): LocaleContextValue {
   };
 }
 
-/** Skrót na samą funkcję tłumaczącą — najczęstszy przypadek użycia. */
+/**
+ * Skrót na samą funkcję tłumaczącą.
+ *
+ * Returns:
+ *     Translate: Funkcja zamieniająca klucz na tekst w bieżącym języku.
+ */
 export function useT(): Translate {
   return useLocale().t;
 }

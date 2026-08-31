@@ -5,14 +5,17 @@ import { getCurrentRates } from "@/lib/nbp";
 import { requireUser } from "@/lib/session";
 
 /**
- * Powłoka (nagłówek, menu, wybór języka) siedzi w layoucie, a nie w każdej
- * stronie z osobna. Przy zmianie widoku Next podmienia wyłącznie segment strony,
- * więc powłoka zostaje zamontowana i pozostaje klikalna w trakcie ładowania.
+ * Powłoka aplikacji: nagłówek, menu i wybór języka.
  *
- * Kursy NBP pobieramy tutaj raz dla wszystkich ekranów — odpowiedź jest
- * cache'owana na godzinę, więc nawigacja ich nie odpytuje ponownie.
+ * Siedzi w layoucie, a nie w każdej stronie z osobna — przy zmianie widoku Next
+ * podmienia sam segment strony, więc powłoka zostaje klikalna w trakcie
+ * ładowania. Kursy NBP pobieramy tu raz dla wszystkich ekranów.
  *
- * Ekran powitalny `/witaj` celowo jest poza tą grupą — leci na pełnym ekranie.
+ * Args:
+ *     children (React.ReactNode): Zawartość bieżącego ekranu.
+ *
+ * Returns:
+ *     ReactNode: Powłoka z providerami kursów i ustawień.
  */
 export default async function ShellLayout({ children }: { children: React.ReactNode }) {
   const [user, rates] = await Promise.all([requireUser(), getCurrentRates()]);

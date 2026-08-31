@@ -1,9 +1,7 @@
 // Generator ikon i obrazka Open Graph z jednego pliku źródłowego.
 //
-// Po co własny kodek zamiast biblioteki: `next/og` ma limit 500 KB na pakiet,
-// a źródłowe logo waży więcej, więc nie da się go wstrzyknąć do ImageResponse.
-// Zamiast dokładać zależność do obróbki obrazów, dekodujemy PNG samym zlib-em —
-// pliki są 8-bitowe i bez przeplotu, czyli w najprostszym wariancie formatu.
+// PNG dekodujemy samym zlib-em zamiast dokładać zależność: pliki są 8-bitowe
+// i bez przeplotu, a `next/og` i tak nie przyjmie logo przez limit pakietu.
 //
 // Uruchamianie: node scripts/make-images.mjs
 import { deflateSync, inflateSync } from "node:zlib";
@@ -394,17 +392,8 @@ console.log(`  ${logo.width}x${logo.height}, przezroczystość: ${hasAlpha(logo)
 console.log(`  całe logo: ${full.w}x${full.h} @ ${full.x},${full.y}`);
 console.log(`  sam znak:  ${mark.w}x${mark.h} @ ${mark.x},${mark.y}`);
 
-// Gdzie tło białe, a gdzie przezroczyste.
-//
-// Uwaga o źródle: maska w SVG usuwa KAŻDĄ biel, więc razem z tłem znika też
-// białe wypełnienie tarczy zegara. Odzyskać go nie sposób — tarcza łączy się
-// z tłem przez otwarcie w literze G, więc ani kolor, ani spójność obszaru nie
-// odróżniają jednego od drugiego. Na jasnym tle nie widać różnicy, na ciemnym
-// tarcza byłaby dziurą. Dlatego przezroczystość zostaje tylko tam, gdzie znak
-// leży na jasnym tle aplikacji; wszędzie indziej podkładamy biel:
-//   - iOS kładzie ikonę na czerni, ciemny znak by zniknął,
-//   - karty w komunikatorach renderują się zależnie od motywu odbiorcy,
-//   - favicon w ciemnym pasku kart jest czytelniejszy na białym kwadracie.
+// Przezroczystość zostaje tylko tam, gdzie znak leży na jasnym tle aplikacji;
+// wszędzie indziej podkładamy biel, bo na ciemnym tle tarcza byłaby dziurą.
 const targets = [
   ["src/app/opengraph-image.png", () => fit(logo, full, 1200, 630, 0.1, BIEL)],
   ["src/app/twitter-image.png", () => fit(logo, full, 1200, 630, 0.1, BIEL)],

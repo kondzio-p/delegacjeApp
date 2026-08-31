@@ -33,6 +33,17 @@ type EditedRow = { hours: string; paid: string };
 /** Ile kart pracowników mieści się na jednej stronie A4. */
 const CARDS_PER_PAGE = 3;
 
+/**
+ * Formatuje kwotę z kodem waluty na końcu.
+ *
+ * Args:
+ *     value (number): Kwota do pokazania.
+ *     code (RateCode): Kod waluty raportu.
+ *     locale (string): Znacznik języka dla `Intl`.
+ *
+ * Returns:
+ *     string: Kwota w rodzaju „1 234,00 PLN".
+ */
 function money(value: number, code: RateCode, locale: string): string {
   return `${value.toLocaleString(locale, {
     minimumFractionDigits: 2,
@@ -40,7 +51,16 @@ function money(value: number, code: RateCode, locale: string): string {
   })} ${code}`;
 }
 
-/** Podział na strony wydruku — po `size` elementów w grupie. */
+/**
+ * Dzieli listę na grupy o zadanym rozmiarze.
+ *
+ * Args:
+ *     items (readonly T[]): Elementy do podziału.
+ *     size (number): Ile elementów wchodzi na jedną stronę wydruku.
+ *
+ * Returns:
+ *     T[][]: Grupy w kolejności wejściowej.
+ */
 function chunk<T>(items: readonly T[], size: number): T[][] {
   const pages: T[][] = [];
   for (let i = 0; i < items.length; i += size) pages.push(items.slice(i, i + size));
@@ -80,10 +100,13 @@ export function CompanyScreen({
     router.push(`/firma?od=${next.from}&do=${next.to}`);
 
   /**
-   * CSV to trzy kolumny wprost z zestawienia: kto, ile przepracował, ile dostał.
-   * Kwoty w złotówkach, bo taką walutę pokazują kafelki nad przyciskiem —
-   * arkusz z innymi liczbami niż ekran, z którego wyszedł, mylił bardziej,
-   * niż pomagał.
+   * Pobiera zestawienie jako arkusz CSV.
+   *
+   * Trzy kolumny wprost z ekranu i kwoty w złotówkach — arkusz z innymi
+   * liczbami niż widok, z którego wyszedł, mylił bardziej, niż pomagał.
+   *
+   * Returns:
+   *     void: Nic — plik ląduje w pobranych.
    */
   const pobierzCsv = () => {
     const csv = toCsv(rows, [
@@ -101,10 +124,8 @@ export function CompanyScreen({
 
   return (
     <>
-      {/*
-        Cała zawartość ekranu jest `no-print`: wydruk ma pokazać dokument
-        z podglądu raportu, a nie kafelki i przyciski, które go wywołały.
-      */}
+      {/* Cała zawartość ekranu jest `no-print` — wydruk pokazuje dokument
+          z podglądu, a nie przyciski, które go wywołały. */}
       <div className="no-print">
         <section className="rounded-2xl bg-card p-4">
           <div className="flex items-center gap-2">
@@ -186,11 +207,19 @@ export function CompanyScreen({
 }
 
 /**
- * Wybór formatu przed pobraniem raportu.
+ * Pyta o format przed wygenerowaniem raportu.
  *
- * PDF i CSV to dwa różne dokumenty dla dwóch różnych zastosowań — wydruk do
- * segregatora i dane do arkusza — więc pytanie pada, zanim cokolwiek się
- * wygeneruje, a nie w postaci dwóch przycisków ukrytych na dole podglądu.
+ * PDF i CSV to dwa różne dokumenty do dwóch różnych zastosowań, więc pytanie
+ * pada, zanim cokolwiek się wygeneruje.
+ *
+ * Args:
+ *     t (Translate): Funkcja tłumacząca.
+ *     onClose (() => void): Zamknięcie okna bez wyboru.
+ *     onPdf (() => void): Wybór wydruku do PDF.
+ *     onCsv (() => void): Wybór pobrania arkusza.
+ *
+ * Returns:
+ *     ReactNode: Okno modalne z dwoma formatami.
  */
 function FormatDialog({
   t,
@@ -306,14 +335,22 @@ function PeriodPicker({
 }
 
 /**
- * Podgląd przed wygenerowaniem PDF-a.
+ * Podgląd raportu przed wygenerowaniem PDF-a.
  *
- * Godziny i kwoty są edytowalne, ale **wyłącznie na potrzeby tego dokumentu** —
- * wartości siedzą w stanie Reacta, nie ma tu żadnej akcji serwerowej, więc
- * fizycznie nie mają jak trafić do bazy. Zamknięcie okna kasuje korekty.
+ * Godziny i kwoty są edytowalne wyłącznie na potrzeby tego dokumentu: wartości
+ * siedzą w stanie Reacta i nie mają jak trafić do bazy, a zamknięcie okna
+ * kasuje korekty. Dokument do druku stoi obok okna, bo `Modal` ma klasę
+ * `no-print`.
  *
- * Dokument do druku stoi **obok** okna, nie w środku: `Modal` ma klasę
- * `no-print`, więc wszystko, co w nim siedzi, znika z wydruku razem z nim.
+ * Args:
+ *     companyName (string): Nazwa firmy w nagłówku dokumentu.
+ *     period (Period): Zakres, za który liczony jest raport.
+ *     rows (PayrollRow[]): Wiersze zestawienia.
+ *     rates (CurrentRates | null): Kursy do przeliczenia kwot.
+ *     onClose (() => void): Zamknięcie podglądu.
+ *
+ * Returns:
+ *     ReactNode: Okno podglądu razem z dokumentem do druku.
  */
 function ReportDialog({
   companyName,

@@ -8,8 +8,19 @@ import { useT } from "@/components/locale-provider";
 import { Modal } from "./ui";
 
 /**
- * Kod odzyskiwania pokazujemy dokładnie raz — w bazie leży tylko jego hash,
- * więc nie ma sposobu, żeby wyświetlić go później.
+ * Pokazuje kod odzyskiwania dokładnie raz.
+ *
+ * W bazie leży wyłącznie hash kodu, więc nie ma sposobu, żeby wyświetlić go
+ * później — stąd ostrzeżenie i przycisk kopiowania.
+ *
+ * Args:
+ *     code (string): Kod do przepisania przez użytkownika.
+ *     onClose (() => void): Wywołanie po potwierdzeniu.
+ *     title (string): Nagłówek okna, gdy domyślny nie pasuje.
+ *     confirmLabel (string): Napis na przycisku potwierdzenia.
+ *
+ * Returns:
+ *     ReactNode: Okno modalne z kodem.
  */
 export function RecoveryCodeDialog({
   code,

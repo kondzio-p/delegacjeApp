@@ -13,6 +13,16 @@ import { formatHours, hoursBetween } from "@/lib/money";
 import { defaultTripId } from "@/lib/trip-summary";
 import type { Trip, WorkEntry } from "@/lib/types";
 
+/**
+ * Ekran godzin: formularz nowego wpisu i lista dotychczasowych.
+ *
+ * Args:
+ *     trips (Trip[]): Podróże do przypisania wpisu.
+ *     entries (WorkEntry[]): Wpisy godzin konta.
+ *
+ * Returns:
+ *     ReactNode: Ekran godzin pracy.
+ */
 export function WorkEntriesScreen({ trips, entries }: { trips: Trip[]; entries: WorkEntry[] }) {
   const t = useT();
   const fmt = useFormat();

@@ -1,15 +1,6 @@
 "use client";
 
-// Strona powitalna pod adresem głównym.
-//
-// Dwie ścieżki narracji przełączane u góry: pracownik na delegacji i właściciel
-// firmy. To dwie różne osoby z dwoma różnymi problemami — pracownik chce
-// wiedzieć, ile zostaje mu na rękę, właściciel ile przepracowali jego ludzie.
-// Wspólny tekst bez tego rozdziału mówiłby obu naraz i żadnemu do końca.
-//
-// Animacje: GSAP ze ScrollTriggerem, ale wyłącznie jako podkreślenie treści.
-// Przy `prefers-reduced-motion` nie odpalamy ich wcale — strona ma być
-// czytelna także wtedy, gdy nic się nie rusza.
+// Strona powitalna: dwie ścieżki narracji — pracownik i właściciel firmy.
 import {
   ArrowRight,
   ArrowRightLeft,
@@ -48,7 +39,12 @@ type Role = "pracownik" | "wlasciciel";
 
 /* ------------------------------------------------------------ animacje */
 
-/** Czy użytkownik prosił o ograniczenie ruchu na stronie. */
+/**
+ * Sprawdza, czy użytkownik prosił o ograniczenie ruchu.
+ *
+ * Returns:
+ *     boolean: True, gdy animacje mają się nie odpalać.
+ */
 function prefersReducedMotion(): boolean {
   return (
     typeof window !== "undefined" &&
@@ -60,9 +56,15 @@ function prefersReducedMotion(): boolean {
  * Liczba odliczana od zera, gdy wjedzie w kadr.
  *
  * Wartość końcowa jest w markupie od razu, a animacja tylko chwilowo ją
- * podmienia. Odwrotna kolejność (start od zera, dorysowanie przez JS) sprawiała,
- * że bez skryptów albo przy nieudanym pobraniu GSAP-a strona chwaliła się
- * „0 zł zostało na rękę" — czyli kłamała w miejscu, które ma budować zaufanie.
+ * podmienia — przy odwrotnej kolejności strona bez skryptów chwaliłaby się
+ * zerem, czyli kłamała w miejscu, które ma budować zaufanie.
+ *
+ * Args:
+ *     to (number): Wartość docelowa licznika.
+ *     text (string): Gotowy napis z serwera, pokazywany po animacji.
+ *
+ * Returns:
+ *     ReactNode: Element z animowaną liczbą.
  */
 function CountUp({ to, text }: { to: number; text: string }) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -80,8 +82,8 @@ function CountUp({ to, text }: { to: number; text: string }) {
       if (cancelled) return;
       gsap.registerPlugin(ScrollTrigger);
 
-      // W trakcie animacji liczy się rytm, nie precyzja — stąd surowe cyfry
-      // zamiast pełnego formatowania. Na końcu i tak wraca napis z serwera.
+      // W trakcie animacji liczy się rytm, nie precyzja — pełny napis wraca
+      // na końcu.
       const counter = { value: 0 };
       const tween = gsap.to(counter, {
         value: to,
@@ -116,7 +118,16 @@ function CountUp({ to, text }: { to: number; text: string }) {
   );
 }
 
-/** Wjazd elementów oznaczonych `data-reveal` w obrębie sekcji. */
+/**
+ * Animuje wjazd elementów oznaczonych `data-reveal`.
+ *
+ * Args:
+ *     scope (React.RefObject<HTMLElement | null>): Sekcja, w której szukamy
+ *         elementów do animowania.
+ *
+ * Returns:
+ *     void: Nic — efekt sprząta po sobie przy odmontowaniu.
+ */
 function useReveal(scope: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
     const root = scope.current;
@@ -178,7 +189,20 @@ function SecondaryCta({ t, className = "" }: { t: Translate; className?: string 
   );
 }
 
-/** Jeden krok narracji: opis z jednej strony, makieta z drugiej. */
+/**
+ * Jeden krok narracji: opis z jednej strony, makieta z drugiej.
+ *
+ * Args:
+ *     index (number): Numer kroku pokazywany obok tytułu.
+ *     title (string): Nagłówek kroku.
+ *     lead (string): Zdanie wprowadzające.
+ *     points (string[]): Wypunktowane szczegóły.
+ *     flip (boolean): Odwraca kolejność opisu i makiety.
+ *     children (ReactNode): Makieta telefonu.
+ *
+ * Returns:
+ *     ReactNode: Sekcja jednego kroku.
+ */
 function Step({
   index,
   title,
@@ -350,15 +374,8 @@ export function LandingScreen() {
       </section>
 
       {/* ------------------------------------------------ przełącznik ról */}
-      {/*
-        Ten przełącznik decyduje o całej treści poniżej, więc nie może wyglądać
-        jak ozdoba paska: własne tło, podpis „Wybierz tryb" i wyraźna ramka
-        mówią wprost, że to element do kliknięcia.
-
-        Etykiety ról są długie w każdym języku („Jestem pracownikiem",
-        „Ich bin Mitarbeiter"), dlatego zamiast `truncate` pozwalamy im się zawinąć
-        — dwie linijki są czytelne, ucięte słowo nie.
-      */}
+      {/* Przełącznik decyduje o całej treści poniżej, więc ma wyglądać
+          na klikalny, a długie etykiety ról zawijają się zamiast być ucinane. */}
       <div className="sticky top-16 z-30 border-b border-border bg-secondary/70 py-4 backdrop-blur">
         <div className="mx-auto w-full max-w-xl px-4">
           <p className="mb-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -563,10 +580,8 @@ export function LandingScreen() {
             <p>{t("landing.footerNote")}</p>
           </div>
 
-          {/*
-            Znak wydawcy. Grafika jest czarna na przezroczystym tle, więc
-            w ciemnym motywie zniknęłaby na tle strony — stąd `dark:invert`.
-          */}
+          {/* Grafika jest czarna na przezroczystym tle, więc w ciemnym
+              motywie ratuje ją `dark:invert`. */}
           <div className="mt-6 flex justify-center border-t border-border pt-6 sm:justify-end">
             <Image
               src="/konradzkimedia.png"

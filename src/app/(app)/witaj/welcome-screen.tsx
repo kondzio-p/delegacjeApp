@@ -10,6 +10,18 @@ import { DASHBOARD_PATH } from "@/lib/routes";
 /** Pojawienie się, chwila pauzy i zniknięcie — razem tyle, ile trwa animacja. */
 const WELCOME_MS = 2000;
 
+/**
+ * Ekran powitalny pokazywany zaraz po zalogowaniu.
+ *
+ * Pulpit ładuje się w tle, więc kliknięcie albo koniec animacji przenosi tam
+ * natychmiast.
+ *
+ * Args:
+ *     name (string): Imię, którym witamy użytkownika.
+ *
+ * Returns:
+ *     ReactNode: Ekran powitania na pełnym ekranie.
+ */
 export function WelcomeScreen({ name }: { name: string }) {
   const t = useT();
   const router = useRouter();

@@ -1,16 +1,8 @@
-// Stosuje oczekujące migracje przez klienta `pg`, gdy CLI Prismy nie daje rady.
+// Stosuje oczekujące migracje przez klienta `pg`, gdy silnik migracji Prismy
+// kończy się błędem P1001 na endpointcie pooled.
 //
-// Dlaczego to istnieje: silnik migracji Prismy kończy się błędem P1001 na
-// endpointcie `pooled.db.prisma.io` (15 prób z rzędu, mimo rozgrzanego
-// i podtrzymywanego połączenia), podczas gdy zwykły klient `pg` łączy się
-// bez problemu. Efekt ma być identyczny, więc wykonujemy ten sam SQL i sami
-// dopisujemy wpis do `_prisma_migrations`.
-//
-// Bezpieczeństwo:
-//  * najpierw sprawdzamy algorytm sumy kontrolnej na JUŻ ZASTOSOWANYCH
-//    migracjach — jeśli się nie zgadza, przerywamy zamiast psuć historię,
-//  * krok jest idempotentny: zastosowana migracja jest pomijana,
-//  * SQL i wpis do historii lecą w jednej transakcji.
+// Sumę kontrolną sprawdzamy na już zastosowanych migracjach, zastosowaną
+// migrację pomijamy, a SQL i wpis do historii lecą w jednej transakcji.
 //
 // Uruchomienie: node --env-file=.env ./apply-migration-pg.mjs
 import { createHash, randomUUID } from "node:crypto";

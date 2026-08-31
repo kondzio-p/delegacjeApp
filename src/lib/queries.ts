@@ -1,16 +1,21 @@
-// Odczyty z bazy używane przez server components.
-//
-// To, co w Supabase robiło RLS, robi tutaj filtr `user_id` — każde zapytanie
-// jest zawężone do właściciela danych. Wyniki wychodzą już zserializowane:
-// daty jako ISO, kwoty Decimal jako number.
+// Odczyty z bazy dla server components — każdy zawężony do właściciela danych.
 import "server-only";
 
 import { prisma } from "./db";
+import { isUuid } from "./ids";
 import { hoursBetween, type Currency } from "./money";
 import type { CurrentRates } from "./rates";
 import type { Expense, Payout, Trip, WorkEntry } from "./types";
 
-/** Prisma zwraca NUMERIC jako Decimal; aplikacja liczy na zwykłych number. */
+/**
+ * Zamienia Decimal z Prismy na zwykłą liczbę.
+ *
+ * Args:
+ *     value ({ toString: () => string }): Wartość NUMERIC z bazy.
+ *
+ * Returns:
+ *     number: Ta sama kwota jako liczba JavaScriptu.
+ */
 function toNumber(value: { toString: () => string }): number {
   return Number(value.toString());
 }
@@ -99,7 +104,7 @@ function mapTrip(row: TripRow): Trip {
   };
 }
 
-// Wiersz godzin nie ma już nic do przemapowania — same stringi.
+/** Wiersz godzin nie ma nic do przemapowania — same stringi. */
 function mapWorkEntry(row: WorkEntryRow): WorkEntry {
   return { ...row };
 }
@@ -126,6 +131,15 @@ function mapPayout(row: PayoutRow): Payout {
 
 /* ----------------------------------------------------------- dane konta */
 
+/**
+ * Zwraca podróże konta, od najnowszej.
+ *
+ * Args:
+ *     userId (string): Właściciel danych.
+ *
+ * Returns:
+ *     Promise<Trip[]>: Podróże posortowane malejąco po dacie wyjazdu.
+ */
 export async function getTrips(userId: string): Promise<Trip[]> {
   const rows = await prisma.trip.findMany({
     where: { user_id: userId },
@@ -135,6 +149,15 @@ export async function getTrips(userId: string): Promise<Trip[]> {
   return rows.map(mapTrip);
 }
 
+/**
+ * Zwraca wpisy godzin konta, od najnowszego.
+ *
+ * Args:
+ *     userId (string): Właściciel danych.
+ *
+ * Returns:
+ *     Promise<WorkEntry[]>: Wpisy posortowane malejąco po dniu i godzinie.
+ */
 export async function getWorkEntries(userId: string): Promise<WorkEntry[]> {
   const rows = await prisma.workEntry.findMany({
     where: { user_id: userId },
@@ -144,6 +167,15 @@ export async function getWorkEntries(userId: string): Promise<WorkEntry[]> {
   return rows.map(mapWorkEntry);
 }
 
+/**
+ * Zwraca koszty konta, od najnowszego.
+ *
+ * Args:
+ *     userId (string): Właściciel danych.
+ *
+ * Returns:
+ *     Promise<Expense[]>: Koszty posortowane malejąco po dniu wydatku.
+ */
 export async function getExpenses(userId: string): Promise<Expense[]> {
   const rows = await prisma.expense.findMany({
     where: { user_id: userId },
@@ -153,6 +185,15 @@ export async function getExpenses(userId: string): Promise<Expense[]> {
   return rows.map(mapExpense);
 }
 
+/**
+ * Zwraca wypłaty konta, od najnowszej.
+ *
+ * Args:
+ *     userId (string): Właściciel danych.
+ *
+ * Returns:
+ *     Promise<Payout[]>: Wypłaty posortowane malejąco po dniu wypłaty.
+ */
 export async function getPayouts(userId: string): Promise<Payout[]> {
   const rows = await prisma.payout.findMany({
     where: { user_id: userId },
@@ -162,7 +203,21 @@ export async function getPayouts(userId: string): Promise<Payout[]> {
   return rows.map(mapPayout);
 }
 
+/**
+ * Zwraca jedną podróż konta.
+ *
+ * Args:
+ *     userId (string): Właściciel danych.
+ *     tripId (string): Identyfikator podróży ze ścieżki adresu.
+ *
+ * Returns:
+ *     Promise<Trip | null>: Podróż albo null, gdy nie istnieje lub jest cudza.
+ */
 export async function getTrip(userId: string, tripId: string): Promise<Trip | null> {
+  // Identyfikator przychodzi ze ścieżki; kolumna jest typu uuid, więc tekst
+  // o innym kształcie kończyłby się błędem bazy zamiast zwykłym 404.
+  if (!isUuid(tripId)) return null;
+
   const row = await prisma.trip.findFirst({
     where: { id: tripId, user_id: userId },
     select: tripSelect,
@@ -180,18 +235,27 @@ export type SharedTripPayload = {
 };
 
 /**
- * Publiczny odczyt udostępnionej podróży — bez logowania.
- * Null oznacza nieznany token albo wyłączone udostępnianie.
+ * Odczytuje udostępnioną podróż bez logowania.
+ *
+ * Warunek `user_id` przy wpisach zostaje jako druga bariera: nawet gdyby wpis
+ * miał podstawione cudze `trip_id`, nie pojawi się w cudzym podsumowaniu.
+ *
+ * Args:
+ *     token (string): Token udostępnienia z adresu.
+ *
+ * Returns:
+ *     Promise<SharedTripPayload | null>: Dane podróży albo null przy nieznanym
+ *     tokenie i wyłączonym udostępnianiu.
  */
 export async function getSharedTrip(token: string): Promise<SharedTripPayload | null> {
+  if (!isUuid(token)) return null;
+
   const trip = await prisma.trip.findFirst({
     where: { share_token: token, share_enabled: true },
     select: { id: true, user_id: true, departure_at: true, return_at: true },
   });
   if (!trip) return null;
 
-  // Warunek user_id zostaje jako druga bariera: nawet gdyby wpis miał podstawione
-  // cudze trip_id, nie pojawi się w cudzym podsumowaniu.
   const scope = { user_id: trip.user_id, trip_id: trip.id };
 
   const [workEntries, expenses, payouts] = await Promise.all([
@@ -218,15 +282,30 @@ export async function getSharedTrip(token: string): Promise<SharedTripPayload | 
 
 /* -------------------------------------------------------------- miesiące */
 
-/** Klucz `YYYY-MM` — porównywalny wprost z tekstowym work_date. */
+/**
+ * Klucz miesiąca porównywalny wprost z tekstowym `work_date`.
+ *
+ * Args:
+ *     date (Date): Dzień, z którego bierzemy miesiąc.
+ *
+ * Returns:
+ *     string: Miesiąc w postaci „YYYY-MM".
+ */
 export function monthKeyOf(date: Date = new Date()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
 /**
- * Granice miesiąca jako teksty `YYYY-MM-DD`. `work_date` jest kolumną tekstową
- * w tym samym formacie, więc porównanie leksykograficzne działa jak datowe
- * i filtr wykonuje się w bazie, a nie po stronie aplikacji.
+ * Granice miesiąca jako teksty „YYYY-MM-DD".
+ *
+ * `work_date` jest kolumną tekstową w tym samym formacie, więc porównanie
+ * leksykograficzne działa jak datowe i filtr wykonuje się w bazie.
+ *
+ * Args:
+ *     monthKey (string): Miesiąc w postaci „YYYY-MM".
+ *
+ * Returns:
+ *     { from: string; to: string }: Początek miesiąca i początek następnego.
  */
 export function monthRange(monthKey: string): { from: string; to: string } {
   const [year, month] = monthKey.split("-").map(Number);
@@ -252,14 +331,21 @@ export type PayrollRow = {
 };
 
 /**
- * Zestawienie firmy za zakres dat: ile kto przepracował i ile dostał.
+ * Składa zestawienie firmy: ile kto przepracował i ile dostał.
  *
- * Kwoty liczymy w PLN po kursach **zamrożonych przy wypłatach**, więc raport
- * za marzec wygląda tak samo niezależnie od tego, kiedy się go wygeneruje.
- * Gdy wypłata nie ma zapisanego kursu (wpis sprzed zmiany), używamy `fallback`
- * — bieżącej tabeli NBP.
+ * Kwoty idą w PLN po kursach zamrożonych przy wypłatach, więc raport za marzec
+ * wygląda tak samo niezależnie od tego, kiedy się go wygeneruje. Zakres dat
+ * jest domknięty od lewej i otwarty od prawej.
  *
- * Zakres dat jest domknięty od lewej i otwarty od prawej: [from, to).
+ * Args:
+ *     companyId (string): Firma, której dotyczy raport.
+ *     from (string): Pierwszy dzień zakresu.
+ *     to (string): Dzień kończący zakres, już do niego nienależący.
+ *     fallback (CurrentRates | null): Bieżąca tabela NBP dla wypłat bez
+ *         własnego kursu.
+ *
+ * Returns:
+ *     Promise<PayrollRow[]>: Wiersz na pracownika, posortowany po imieniu.
  */
 export async function getCompanyPayrollReport(
   companyId: string,
@@ -324,15 +410,25 @@ export async function getCompanyPayrollReport(
 }
 
 /**
- * Wypłaty pracownika widoczne dla właściciela.
+ * Zwraca wypłaty pracownika widoczne dla właściciela.
  *
- * Właściciel widzi wypłaty, bo sam je wydał. **Kosztów pracownika nie widzi** —
+ * Właściciel widzi wypłaty, bo sam je wydał. Kosztów pracownika nie widzi —
  * to jego prywatne wydatki i nie ma dla nich odpowiednika tej funkcji.
+ *
+ * Args:
+ *     companyId (string): Firma pytającego właściciela.
+ *     employeeId (string): Pracownik, o którego chodzi.
+ *
+ * Returns:
+ *     Promise<Payout[]>: Wypłaty od najnowszej; pusta lista, gdy to nie jest
+ *     pracownik tej firmy.
  */
 export async function getEmployeePayouts(
   companyId: string,
   employeeId: string,
 ): Promise<Payout[]> {
+  if (!isUuid(employeeId)) return [];
+
   const employee = await prisma.user.findFirst({
     where: { id: employeeId, company_id: companyId },
     select: { id: true },
@@ -366,12 +462,19 @@ export type JoinRequestRow = {
 };
 
 /**
- * Karty pracowników z godzinami za wskazany miesiąc.
+ * Zwraca karty pracowników z godzinami za wskazany miesiąc.
  *
  * Godziny filtrujemy w zapytaniu, a nie po pobraniu wszystkiego — pracownik
- * z rocznym stażem ma setki wpisów, a na tym ekranie interesuje nas jeden
- * miesiąc. Ostatni wpis (niezależny od miesiąca) dociągamy osobno, bo jedna
- * relacja nie może być w jednym `select` użyta dwa razy z różnymi filtrami.
+ * z rocznym stażem ma setki wpisów, a na tym ekranie liczy się jeden miesiąc.
+ * Ostatni wpis dociągamy osobno, bo jedna relacja nie może być w jednym
+ * `select` użyta dwa razy z różnymi filtrami.
+ *
+ * Args:
+ *     companyId (string): Firma, której pracowników pokazujemy.
+ *     monthKey (string): Miesiąc „YYYY-MM" liczony do sumy godzin.
+ *
+ * Returns:
+ *     Promise<EmployeeCard[]>: Karty posortowane po imieniu.
  */
 export async function getCompanyEmployees(
   companyId: string,
@@ -420,6 +523,15 @@ export async function getCompanyEmployees(
   }));
 }
 
+/**
+ * Zwraca prośby o dołączenie czekające na decyzję właściciela.
+ *
+ * Args:
+ *     companyId (string): Firma, do której złożono prośby.
+ *
+ * Returns:
+ *     Promise<JoinRequestRow[]>: Prośby od najstarszej.
+ */
 export async function getJoinRequests(companyId: string): Promise<JoinRequestRow[]> {
   const rows = await prisma.joinRequest.findMany({
     where: { company_id: companyId },
@@ -438,7 +550,19 @@ export async function getJoinRequests(companyId: string): Promise<JoinRequestRow
   }));
 }
 
-/** Nazwy firm potrzebne w ustawieniach: własna, pracodawcy i tej z prośby. */
+/**
+ * Zbiera stan przynależności konta do firm.
+ *
+ * Ekran ustawień pokazuje w jednym miejscu firmę własną, firmę pracodawcy,
+ * wysłaną prośbę o dołączenie, współwłasność i czekające zaproszenie.
+ *
+ * Args:
+ *     user ({ id: string; company_id: string | null; is_owner: boolean }):
+ *         Zalogowane konto.
+ *
+ * Returns:
+ *     Promise<object>: Nazwy firm i lista współwłaścicieli do wyświetlenia.
+ */
 export async function getCompanyStatus(user: {
   id: string;
   company_id: string | null;
@@ -457,7 +581,6 @@ export async function getCompanyStatus(user: {
     }),
   ]);
 
-  // Współwłasność i zaproszenia: kto jest w mojej firmie i czy ktoś mnie zaprosił.
   const [coOwners, invite, myCoOwnership] = await Promise.all([
     ownCompany
       ? prisma.companyCoOwner.findMany({

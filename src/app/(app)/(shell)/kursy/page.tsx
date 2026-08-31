@@ -9,6 +9,12 @@ export function generateMetadata(): Promise<Metadata> {
   return pageMetadata("nav.rates", "meta.rates");
 }
 
+/**
+ * Przeliczarka walut.
+ *
+ * Returns:
+ *     Promise<ReactNode>: Zawartość ekranu.
+ */
 export default async function RatesPage() {
   // Kursy przychodzą z layoutu przez RatesProvider — tutaj wystarczy bramka.
   await requireUser();

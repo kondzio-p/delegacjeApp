@@ -1,7 +1,5 @@
-// Wybór języka interfejsu. Preferencja konta — źródłem prawdy jest kolumna
-// `users.locale`. Ciasteczko (nie httpOnly) jest tylko nośnikiem: pozwala
-// wyrenderować właściwy język już przy pierwszym żądaniu, także na ekranie
-// logowania, gdzie sesji jeszcze nie ma.
+// Wybór języka interfejsu. Źródłem prawdy jest kolumna `users.locale`,
+// a ciasteczko niesie wybór na ekrany bez sesji.
 
 export const LOCALES = ["pl", "de", "uk", "en"] as const;
 
@@ -22,11 +20,28 @@ export const LOCALE_META: Record<Locale, { native: string; short: string; flag: 
   en: { native: "English", short: "EN", flag: "🇬🇧" },
 };
 
+/**
+ * Sprawdza, czy wartość jest obsługiwanym kodem języka.
+ *
+ * Args:
+ *     value (unknown): Wartość z ciasteczka, formularza albo bazy.
+ *
+ * Returns:
+ *     boolean: True dla języka, który aplikacja zna.
+ */
 export function isLocale(value: unknown): value is Locale {
   return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
 }
 
-/** Nieznana albo brakująca wartość zawsze wraca do polskiego. */
+/**
+ * Sprowadza wartość do znanego kodu języka.
+ *
+ * Args:
+ *     value (unknown): Wartość z ciasteczka, formularza albo bazy.
+ *
+ * Returns:
+ *     Locale: Podany język albo polski, gdy wartość jest nieznana.
+ */
 export function normalizeLocale(value: unknown): Locale {
   return isLocale(value) ? value : DEFAULT_LOCALE;
 }

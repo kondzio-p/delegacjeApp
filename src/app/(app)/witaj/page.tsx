@@ -9,7 +9,12 @@ export function generateMetadata(): Promise<Metadata> {
   return pageMetadata("welcome.title");
 }
 
-/** Ekran pokazywany zaraz po zalogowaniu lub rejestracji. */
+/**
+ * Ekran powitalny po zalogowaniu.
+ *
+ * Returns:
+ *     Promise<ReactNode>: Zawartość ekranu.
+ */
 export default async function WelcomePage() {
   const user = await requireUser();
   return <WelcomeScreen name={user.name} />;

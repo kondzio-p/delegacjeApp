@@ -1,10 +1,11 @@
 /**
  * Granica ładowania dla wszystkich ekranów w powłoce.
  *
- * Robi dwie rzeczy naraz: daje natychmiastową odpowiedź na kliknięcie oraz
- * — co ważniejsze — pozwala Next.js prefetchować te trasy. Bez `loading` trasy
- * dynamiczne (a wszystkie tutaj czytają ciasteczko sesji) nie są prefetchowane
- * w ogóle, więc każde przejście czekało na pełną rundę do bazy.
+ * Poza natychmiastową odpowiedzią na kliknięcie pozwala Next prefetchować te
+ * trasy — bez `loading` trasy dynamiczne nie są prefetchowane w ogóle.
+ *
+ * Returns:
+ *     ReactNode: Szkielet ekranu na czas ładowania.
  */
 export default function ShellLoading() {
   return (

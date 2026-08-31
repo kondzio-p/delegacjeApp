@@ -16,6 +16,19 @@ import type { ActionState } from "@/lib/types";
 
 type SortMode = "name" | "hours";
 
+/**
+ * Zespół firmy: karty pracowników i prośby o dołączenie.
+ *
+ * Args:
+ *     companyName (string): Nazwa firmy w nagłówku.
+ *     employees (EmployeeCard[]): Karty pracowników.
+ *     requests (JoinRequestRow[]): Prośby czekające na decyzję.
+ *     month (string): Wybrany miesiąc „YYYY-MM".
+ *     months ({ key: string; label: string }[]): Miesiące do wyboru.
+ *
+ * Returns:
+ *     ReactNode: Ekran zespołu.
+ */
 export function EmployeesScreen({
   companyName,
   employees,

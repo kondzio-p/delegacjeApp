@@ -2,8 +2,7 @@ import { existsSync } from "node:fs";
 
 import { defineConfig, env } from "prisma/config";
 
-// Prisma CLI (7.x) nie wczytuje .env samo. Node robi to natywnie; na Vercelu
-// pliku .env nie ma, bo zmienne przychodzą z ustawień projektu.
+// Prisma CLI nie wczytuje .env samo; na Vercelu zmienne idą z ustawień projektu.
 if (existsSync(".env")) process.loadEnvFile(".env");
 
 export default defineConfig({

@@ -64,6 +64,21 @@ describe("toCsv", () => {
     expect(wiersze(csv)[1]).toBe("Jan Kowalski;1;1");
   });
 
+  it("unieszkodliwia pole zaczynające się od znaku formuły", () => {
+    const csv = toCsv([{ imie: "=HYPERLINK(\"http://zly.pl\")", godziny: 1, kwota: 1 }], KOLUMNY);
+    expect(wiersze(csv)[1]).toBe("\"'=HYPERLINK(\"\"http://zly.pl\"\")\";1;1");
+  });
+
+  it("unieszkodliwia formułę udającą kwotę ujemną", () => {
+    const csv = toCsv([{ imie: "-2+3+cmd|calc", godziny: 1, kwota: 1 }], KOLUMNY);
+    expect(wiersze(csv)[1]).toBe("'-2+3+cmd|calc;1;1");
+  });
+
+  it("zostawia kwotę ujemną liczbą", () => {
+    const csv = toCsv([{ imie: csvAmount(-12.5), godziny: 1, kwota: 1 }], KOLUMNY);
+    expect(wiersze(csv)[1]).toBe("-12,50;1;1");
+  });
+
   it("znosi liczby, które liczbami nie są", () => {
     const csv = toCsv([{ imie: "Jan", godziny: Number.NaN, kwota: 1 }], KOLUMNY);
     expect(wiersze(csv)[1]).toBe("Jan;;1");

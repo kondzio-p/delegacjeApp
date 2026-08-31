@@ -1,8 +1,4 @@
-// Pobieranie kursów z Narodowego Banku Polskiego — publiczne API, bez klucza
-// i bez limitów. Wyłącznie kod serwerowy; stałe i typy współdzielone z klientem
-// siedzą w `rates.ts`.
-//
-// Tabela A to kursy średnie, publikowane w dni robocze między 11:45 a 12:15.
+// Pobieranie kursów z NBP: tabela A, publikowana w dni robocze koło południa.
 import "server-only";
 
 import {
@@ -17,19 +13,30 @@ import {
 
 const API = "https://api.nbp.pl/api/exchangerates";
 
+/**
+ * Przesuwa dzień o zadaną liczbę dób.
+ *
+ * Args:
+ *     day (string): Dzień wyjściowy „YYYY-MM-DD".
+ *     delta (number): Liczba dni do dodania; ujemna cofa.
+ *
+ * Returns:
+ *     string: Przesunięty dzień w tym samym formacie.
+ */
 function shiftDays(day: string, delta: number): string {
   const [y, m, d] = day.split("-").map(Number);
   return isoDate(new Date(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + delta));
 }
 
 /**
- * Bieżąca tabela A.
+ * Pobiera bieżącą tabelę kursów.
  *
- * Cache na godzinę: NBP publikuje raz dziennie, więc częstsze pytanie nic nie
- * wnosi, a ekran kursów i tak odświeży się w rozsądnym czasie po publikacji.
+ * Cache na godzinę, bo NBP publikuje raz dziennie. Niepełna tabela jest
+ * odrzucana w całości — lepiej nic niż połowa kursów.
  *
- * `null` oznacza, że NBP nie odpowiedziało — wywołujący ma to znieść, a nie
- * wywalić stronę.
+ * Returns:
+ *     Promise<CurrentRates | null>: Kursy albo null, gdy NBP nie odpowiedziało;
+ *     wywołujący ma to znieść, a nie wywalić strony.
  */
 export async function getCurrentRates(): Promise<CurrentRates | null> {
   try {
@@ -48,7 +55,6 @@ export async function getCurrentRates(): Promise<CurrentRates | null> {
     for (const row of table.rates) {
       if (isForeignCode(row.code)) rates[row.code] = row.mid;
     }
-    // Brak którejkolwiek z naszych walut to niepełna tabela — lepiej nic niż połowa.
     if (FOREIGN_CODES.some((code) => typeof rates[code] !== "number")) return null;
 
     return { effectiveDate: table.effectiveDate, rates };
@@ -58,12 +64,18 @@ export async function getCurrentRates(): Promise<CurrentRates | null> {
 }
 
 /**
- * Kurs waluty na wskazany dzień albo — gdy tego dnia nie było publikacji
- * (weekend, święto) — z ostatniego dnia roboczego przed nim.
+ * Pobiera kurs waluty na wskazany dzień.
  *
  * NBP zwraca 404 dla dni bez publikacji, więc zamiast cofać się dzień po dniu
- * pytamy o dziesięciodniowy przedział i bierzemy ostatni wpis: jedno żądanie
- * zamiast siedmiu.
+ * pytamy o dziesięciodniowy przedział i bierzemy ostatni wpis — weekend
+ * i święto załatwiają się same.
+ *
+ * Args:
+ *     code (RateCode): Waluta, o którą pytamy.
+ *     day (string): Dzień operacji „YYYY-MM-DD".
+ *
+ * Returns:
+ *     Promise<DayRate | null>: Kurs z datą tabeli albo null przy braku danych.
  */
 export async function getRateForDate(code: RateCode, day: string): Promise<DayRate | null> {
   if (code === "PLN") return { mid: PLN_RATE, effectiveDate: day };

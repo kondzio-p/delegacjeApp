@@ -15,6 +15,12 @@ import { SubmitButton, TextField } from "../logowanie/auth-form";
 
 const EMPTY: CodeState = {};
 
+/**
+ * Formularz odzyskiwania hasła kodem.
+ *
+ * Returns:
+ *     ReactNode: Ekran odzyskiwania z nowym kodem po udanej zmianie.
+ */
 export function RecoverForm() {
   const t = useT();
   const router = useRouter();

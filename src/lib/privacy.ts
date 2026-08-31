@@ -1,6 +1,5 @@
-// Stałe wspólne dla akcji serwerowej i formularza. Nie mogą mieszkać
-// w `actions/privacy.ts`, bo plik z „use server" eksportuje wyłącznie funkcje
-// asynchroniczne.
+// Stałe wspólne dla akcji i formularza — plik z „use server" eksportuje
+// wyłącznie funkcje asynchroniczne, więc nie zmieszczą się obok akcji.
 
 /** Słowo, które trzeba przepisać, żeby potwierdzić usunięcie konta. */
 export const DELETE_CONFIRMATION = "USUWAM";

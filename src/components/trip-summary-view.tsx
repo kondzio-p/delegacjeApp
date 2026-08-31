@@ -15,6 +15,18 @@ import { useFormat } from "@/components/use-format";
 import { formatHours, hoursBetween, type Currency } from "@/lib/money";
 import type { TripSummary } from "@/lib/trip-summary";
 
+/**
+ * Kafelek z jedną liczbą i podpisem.
+ *
+ * Args:
+ *     icon (ReactNode): Ikona kafelka.
+ *     label (string): Podpis nad wartością.
+ *     value (string): Wartość do pokazania.
+ *     tone ("default" | "success" | "destructive"): Kolor wartości.
+ *
+ * Returns:
+ *     ReactNode: Kafelek statystyki.
+ */
 export function StatCard({
   icon,
   label,
@@ -47,7 +59,16 @@ export function StatCard({
   );
 }
 
-/** Siatka kafelków ze statystykami — identyczna dla właściciela i obserwatora. */
+/**
+ * Siatka kafelków ze statystykami — ta sama dla właściciela i obserwatora.
+ *
+ * Args:
+ *     summary (TripSummary): Policzone podsumowanie podróży.
+ *     display (Currency): Waluta wyświetlania.
+ *
+ * Returns:
+ *     ReactNode: Siatka kafelków.
+ */
 export function TripStatsGrid({ summary, display }: { summary: TripSummary; display: Currency }) {
   const t = useT();
   const fmt = useFormat();
@@ -91,6 +112,16 @@ export function TripStatsGrid({ summary, display }: { summary: TripSummary; disp
   );
 }
 
+/**
+ * Rozbicie kosztów na kategorie.
+ *
+ * Args:
+ *     summary (TripSummary): Policzone podsumowanie podróży.
+ *     display (Currency): Waluta wyświetlania.
+ *
+ * Returns:
+ *     ReactNode: Lista kategorii z kwotami.
+ */
 export function CategoryBreakdown({
   byCategory,
   display,
@@ -120,6 +151,15 @@ export function CategoryBreakdown({
   );
 }
 
+/**
+ * Lista wpisów godzin należących do podróży.
+ *
+ * Args:
+ *     summary (TripSummary): Policzone podsumowanie podróży.
+ *
+ * Returns:
+ *     ReactNode: Lista wpisów albo zastępnik przy pustce.
+ */
 export function WorkEntriesList({ summary }: { summary: TripSummary }) {
   const t = useT();
   const fmt = useFormat();
@@ -151,6 +191,15 @@ export function WorkEntriesList({ summary }: { summary: TripSummary }) {
   );
 }
 
+/**
+ * Lista kosztów i wypłat należących do podróży.
+ *
+ * Args:
+ *     summary (TripSummary): Policzone podsumowanie podróży.
+ *
+ * Returns:
+ *     ReactNode: Lista transakcji albo zastępnik przy pustce.
+ */
 export function TransactionsList({ summary }: { summary: TripSummary }) {
   const t = useT();
   const fmt = useFormat();
