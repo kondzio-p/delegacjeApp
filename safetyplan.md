@@ -91,14 +91,16 @@ liczbę żądań. Przy haśle od 6 znaków i — co gorsza — przy siedmioliter
 startowym nadawanym pracownikowi przez właściciela (`generateResetPassword`,
 25^7 kombinacji) zgadywanie było kwestią czasu i pasma.
 
-Poprawka: `src/lib/rate-limit.ts` — okno przesuwne w pamięci procesu, klucz to
-adres IP z `x-forwarded-for` plus podany e-mail. Limity: 10 prób logowania na
-15 minut, 5 prób odzyskiwania na godzinę, 5 rejestracji na godzinę, 10 zmian
-hasła na 15 minut. Udane logowanie kasuje licznik.
+Poprawka: `src/lib/rate-limit.ts` — okno przesuwne liczone w tabeli
+`auth_attempts`, klucz to adres IP z `x-forwarded-for` plus podany e-mail.
+Limity: 10 prób logowania na 15 minut, 5 prób odzyskiwania na godzinę,
+5 rejestracji na godzinę, 10 zmian hasła na 15 minut. Udane logowanie kasuje
+licznik, a wiersze starsze niż dwie godziny sprzątają się same.
 
-Ograniczenie do odnotowania: licznik żyje w pamięci instancji, więc przy wielu
-instancjach serverless nie jest globalny. Podnosi koszt ataku o rząd wielkości,
-ale docelowo licznik powinien mieszkać w bazie albo w Redisie.
+Licznik siedzi w bazie, a nie w pamięci procesu, bo przy kilku instancjach
+serverless każda liczyłaby po swojemu i limit dałoby się obejść zwykłym
+ponawianiem żądań. Gdy baza nie odpowiada, zostaje zapasowy licznik w pamięci
+instancji — słabszy, ale lepszy niż przepuszczanie każdej próby.
 
 ### W-2. Kanał czasowy zdradzający istnienie konta — naprawione
 
@@ -221,12 +223,23 @@ i tym samym wejść na jego konto, gdzie widać prywatne koszty. To wynika z mod
 (nie ma poczty, więc ktoś musi umieć odblokować konto), ale warto, żeby było
 świadomą decyzją, a nie efektem ubocznym.
 
-### N-7. `npm audit`: `deepmerge-ts` < 8.0.0 (wysokie) — pozostawione
+### N-7. `npm audit`: `deepmerge-ts` < 8.0.0 (wysokie) — naprawione
 
-Podatność siedzi w `@prisma/config`, czyli w narzędziu CLI używanym przy
-migracjach i buildzie, nie w kodzie serwującym ruch. `npm audit fix --force`
-cofnąłby Prismę do wersji 6 — lekarstwo gorsze od choroby. Do przeglądu przy
-najbliższym wydaniu Prismy.
+Podatność (wyczerpanie stosu przy scalaniu rekurencyjnych obiektów) siedziała
+w `@prisma/config`, czyli w narzędziu CLI używanym przy migracjach i buildzie,
+nie w kodzie serwującym ruch — `prisma` jest zależnością deweloperską, a wejście
+do scalania to własny `prisma.config.ts`, nie dane od użytkownika. Ryzyko było
+więc bliskie zeru, ale dało się je usunąć bez kompromisu.
+
+Sprawdzone wersje: najnowsza stabilna Prisma to 7.10.0 (podbita z 7.9.1),
+ale jej `@prisma/config` dalej ciągnie `deepmerge-ts@7.1.5`. Tag `latest` na npm
+wskazuje 8.0.0-rc.12, czyli kandydata do wydania — do produkcji się nie nadaje,
+choć warto odnotować, że linia 8 nie ma już `@prisma/config` w zależnościach.
+Zamiast tego `overrides` w `package.json` wymusza `deepmerge-ts@^8.0.2`.
+`@prisma/config` używa stamtąd wyłącznie funkcji `deepmerge` jako mergera dla
+`c12`, więc wersja 8 podmienia się bez zmiany API. Po podmianie `prisma generate`,
+`prisma validate` i `prisma migrate` działają, a `npm audit` pokazuje zero
+podatności.
 
 ### N-8. Zrzut z bazy leży w katalogu roboczym — do decyzji właściciela
 
@@ -266,10 +279,12 @@ a wcześniej wywrotne adresy odpowiadają poprawnie.
 
 ## Do rozważenia poza tą sesją
 
-1. Licznik prób logowania w bazie zamiast w pamięci procesu (W-1).
-2. CSP z nonce przez `proxy.ts` zamiast `unsafe-inline` (S-4).
-3. Wymuszenie zmiany hasła startowego przy pierwszym logowaniu (N-5).
-4. Sprzątanie wygasłych rekordów w `sessions` — dziś zostają do najbliższej
-   próby użycia.
-5. Weryfikacja adresu e-mail, która odblokowałaby normalne odzyskiwanie hasła
+1. CSP z nonce przez `proxy.ts` zamiast `unsafe-inline` (S-4).
+2. Wymuszenie zmiany hasła startowego przy pierwszym logowaniu (N-5).
+3. Sprzątanie wygasłych rekordów w `sessions` — dziś zostają do najbliższej
+   próby użycia. Wzorzec jest już pod ręką: `auth_attempts` sprząta się przy
+   okazji kolejnych prób.
+4. Weryfikacja adresu e-mail, która odblokowałaby normalne odzyskiwanie hasła
    i pozwoliła zamknąć enumerację z N-4.
+5. Przejście na Prismę 8, gdy wyjdzie stabilna — wtedy `overrides` dla
+   `deepmerge-ts` będzie można usunąć, bo linia 8 nie ciągnie `@prisma/config`.

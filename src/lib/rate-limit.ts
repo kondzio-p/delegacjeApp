@@ -2,6 +2,8 @@ import "server-only";
 
 import { headers } from "next/headers";
 
+import { prisma } from "./db";
+
 /** Reguła limitu: ile prób i w jakim oknie czasu. */
 export type RateLimitRule = { limit: number; windowMs: number };
 
@@ -12,16 +14,13 @@ export const RECOVERY_RULE: RateLimitRule = { limit: 5, windowMs: 60 * MINUTE };
 export const REGISTER_RULE: RateLimitRule = { limit: 5, windowMs: 60 * MINUTE };
 export const PASSWORD_RULE: RateLimitRule = { limit: 10, windowMs: 15 * MINUTE };
 
-/** Ile kluczy trzymamy, zanim zaczniemy wyrzucać najstarsze. */
-const MAX_KEYS = 10_000;
+/** Po tylu godzinach żaden wiersz nie mieści się już w oknie żadnej reguły. */
+const KEEP_HOURS = 2;
 
-// Licznik przeżywa przeładowanie modułów w dev tak samo jak klient Prismy.
-const globalForLimiter = globalThis as typeof globalThis & {
-  __rateLimiter?: Map<string, number[]>;
-};
+/** Co która próba sprząta stare wiersze — rzadko, bo to zapytanie na boku. */
+const SWEEP_EVERY = 20;
 
-const attempts: Map<string, number[]> = globalForLimiter.__rateLimiter ?? new Map();
-globalForLimiter.__rateLimiter = attempts;
+let sinceSweep = 0;
 
 /**
  * Adres IP żądania.
@@ -42,58 +41,99 @@ async function clientIp(): Promise<string> {
 }
 
 /**
- * Klucz licznika dla bieżącego żądania.
+ * Podmiot licznika dla bieżącego żądania.
+ *
+ * Adres IP plus e-mail: samo IP karałoby wszystkich za jednym łączem, a sam
+ * e-mail pozwalałby zablokować cudze konto z dowolnego miejsca.
  *
  * Args:
- *     scope (string): Nazwa chronionej akcji, np. „login".
- *     subject (string): Dodatkowy człon klucza, zwykle znormalizowany e-mail.
+ *     subject (string): Drugi człon klucza, zwykle znormalizowany e-mail.
  *
  * Returns:
- *     Promise<string>: Klucz złożony z zakresu, adresu IP i podmiotu.
+ *     Promise<string>: Klucz przycięty do długości kolumny w bazie.
  */
-async function keyFor(scope: string, subject: string): Promise<string> {
-  return `${scope}:${await clientIp()}:${subject}`;
+async function subjectFor(subject: string): Promise<string> {
+  return `${await clientIp()}|${subject.toLowerCase()}`.slice(0, 200);
 }
 
 /**
- * Usuwa próby spoza okna i pilnuje rozmiaru mapy.
+ * Kasuje wiersze starsze niż najdłuższe okno.
  *
- * Args:
- *     key (string): Klucz licznika.
- *     rule (RateLimitRule): Reguła wyznaczająca okno czasu.
+ * Zaglądamy tu raz na kilkanaście prób, bo tabela rośnie wolno, a sprzątanie
+ * przy każdym logowaniu byłoby zapytaniem w zamian za nic.
  *
  * Returns:
- *     number[]: Znaczniki czasu prób mieszczących się w oknie.
+ *     Promise<void>: Nic — błąd sprzątania nie ma prawa wywrócić logowania.
  */
-function fresh(key: string, rule: RateLimitRule): number[] {
+async function sweep(): Promise<void> {
+  if (++sinceSweep < SWEEP_EVERY) return;
+  sinceSweep = 0;
+
+  try {
+    await prisma.authAttempt.deleteMany({
+      where: { created_at: { lt: new Date(Date.now() - KEEP_HOURS * 60 * MINUTE) } },
+    });
+  } catch {
+    // Trudno — spróbujemy przy następnej okazji.
+  }
+}
+
+/* ------------------------------------------------- licznik awaryjny */
+
+// Gdy baza nie odpowiada, logowanie ma dalej działać, ale nie może zostać bez
+// żadnej ochrony. Ten licznik żyje w pamięci instancji i wystarcza na czas awarii.
+const globalForFallback = globalThis as typeof globalThis & {
+  __rateLimiter?: Map<string, number[]>;
+};
+
+const memory: Map<string, number[]> = globalForFallback.__rateLimiter ?? new Map();
+globalForFallback.__rateLimiter = memory;
+
+/** Więcej kluczy w pamięci niż tyle oznacza atak, a nie ruch użytkowników. */
+const MAX_KEYS = 10_000;
+
+/**
+ * Zlicza próbę w pamięci procesu.
+ *
+ * Args:
+ *     key (string): Pełny klucz licznika.
+ *     rule (RateLimitRule): Ile prób w jakim oknie.
+ *
+ * Returns:
+ *     boolean: True, gdy próba mieści się w limicie.
+ */
+function allowInMemory(key: string, rule: RateLimitRule): boolean {
   const cutoff = Date.now() - rule.windowMs;
-  const kept = (attempts.get(key) ?? []).filter((moment) => moment > cutoff);
+  const recent = (memory.get(key) ?? []).filter((moment) => moment > cutoff);
 
-  if (kept.length === 0) attempts.delete(key);
-  else attempts.set(key, kept);
-
-  // Mapa rośnie tylko przy ataku z wielu adresów — wtedy najstarszy klucz
-  // i tak jest już bezużyteczny.
-  if (attempts.size > MAX_KEYS) {
-    const oldest = attempts.keys().next().value;
-    if (oldest !== undefined) attempts.delete(oldest);
+  if (memory.size > MAX_KEYS) {
+    const oldest = memory.keys().next().value;
+    if (oldest !== undefined) memory.delete(oldest);
   }
 
-  return kept;
+  if (recent.length >= rule.limit) {
+    memory.set(key, recent);
+    return false;
+  }
+
+  memory.set(key, [...recent, Date.now()]);
+  return true;
 }
+
+/* ----------------------------------------------------------- licznik */
 
 /**
  * Zlicza próbę i mówi, czy mieści się w limicie.
  *
- * Okno jest przesuwne: liczymy próby z ostatnich `windowMs` milisekund, więc
- * napastnik nie odzyskuje pełnej puli równo o pełnej godzinie. Licznik żyje
- * w pamięci procesu, co przy wielu instancjach oznacza limit na instancję —
- * podnosi koszt ataku, ale nie zastępuje licznika w bazie.
+ * Okno jest przesuwne: liczymy wiersze z ostatnich `windowMs` milisekund, więc
+ * napastnik nie odzyskuje pełnej puli równo o pełnej godzinie. Licznik siedzi
+ * w bazie, bo w pamięci procesu działałby osobno na każdej instancji i limit
+ * dałoby się obejść samym ponawianiem żądań.
  *
  * Args:
- *     scope (string): Nazwa chronionej akcji.
+ *     scope (string): Nazwa chronionej akcji, np. „login".
  *     rule (RateLimitRule): Ile prób w jakim oknie.
- *     subject (string): Dodatkowy człon klucza, zwykle e-mail z formularza.
+ *     subject (string): Drugi człon klucza, zwykle e-mail z formularza.
  *
  * Returns:
  *     Promise<boolean>: True, gdy próbę wolno wykonać.
@@ -103,13 +143,23 @@ export async function allowAttempt(
   rule: RateLimitRule,
   subject = "",
 ): Promise<boolean> {
-  const key = await keyFor(scope, subject.toLowerCase());
-  const recent = fresh(key, rule);
+  const key = await subjectFor(subject);
+  const since = new Date(Date.now() - rule.windowMs);
 
-  if (recent.length >= rule.limit) return false;
+  try {
+    const recent = await prisma.authAttempt.count({
+      where: { scope, subject: key, created_at: { gt: since } },
+    });
+    if (recent >= rule.limit) return false;
 
-  attempts.set(key, [...recent, Date.now()]);
-  return true;
+    await prisma.authAttempt.create({ data: { scope, subject: key } });
+    await sweep();
+    return true;
+  } catch {
+    // Baza milczy — zostaje licznik w pamięci instancji. Gorszy, ale to wciąż
+    // więcej niż przepuszczenie każdej próby.
+    return allowInMemory(`${scope}:${key}`, rule);
+  }
 }
 
 /**
@@ -123,5 +173,12 @@ export async function allowAttempt(
  *     Promise<void>: Nic — licznik znika.
  */
 export async function forgetAttempts(scope: string, subject = ""): Promise<void> {
-  attempts.delete(await keyFor(scope, subject.toLowerCase()));
+  const key = await subjectFor(subject);
+  memory.delete(`${scope}:${key}`);
+
+  try {
+    await prisma.authAttempt.deleteMany({ where: { scope, subject: key } });
+  } catch {
+    // Wiersze i tak wypadną z okna, a potem sprzątnie je `sweep`.
+  }
 }

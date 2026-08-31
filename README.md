@@ -156,13 +156,14 @@ spójna. Jest idempotentny — zastosowane migracje pomija.
 
 ```
 prisma/schema.prisma       model danych (users, companies, join_requests, sessions,
-                           trips, work_entries, expenses, payouts)
+                           auth_attempts, trips, work_entries, expenses, payouts)
 src/lib/auth.ts            hasła (scrypt), kod odzyskiwania, sesje w ciasteczku
 src/lib/session.ts         bramki dostępu: requireUser / requireOwner / findMyEmployee
 src/lib/db.ts              klient Prisma (adapter node-postgres)
 src/lib/queries.ts         odczyty dla server components
 src/lib/actions/           zapisy: auth.ts, company.ts, data.ts
 src/lib/rate-limit.ts      limit prób logowania, odzyskiwania i rejestracji
+                           (licznik w tabeli auth_attempts)
 src/lib/trip-summary.ts    liczenie podsumowań i realnych stawek godzinowych
 src/app/(app)/             ekrany po zalogowaniu
 src/app/udostepnione/      publiczny podgląd wyjazdu spod linku
@@ -235,6 +236,8 @@ Po pierwszym zalogowaniu wejdź w **Ustawienia → Konto** i wpisz prawdziwy adr
 - Kursu nikt nie ustawia ręcznie: pochodzi z NBP i jest zamrażany przy każdym
   koszcie i każdej wypłacie, więc podsumowanie za miniony miesiąc nie zmienia
   się wraz z kursem dnia.
-- Limit prób logowania liczy się w pamięci procesu. Na jednej instancji działa
-  jak trzeba, ale przy kilku instancjach naraz każda liczy po swojemu —
-  docelowo licznik powinien mieszkać w bazie.
+- Limit prób logowania liczy się w tabeli `auth_attempts`, więc obowiązuje
+  wspólnie na wszystkich instancjach. Gdyby baza nie odpowiadała, licznik
+  spada na zapasowy w pamięci procesu — słabszy, ale logowanie nie zostaje
+  wtedy zupełnie bez ochrony. Wiersze starsze niż dwie godziny sprzątają się
+  same przy okazji kolejnych prób.

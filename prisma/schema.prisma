@@ -109,6 +109,22 @@ model CoOwnerInvite {
   @@map("co_owner_invites")
 }
 
+/// Próba logowania, odzyskiwania hasła albo rejestracji — jeden wiersz na jedną
+/// próbę. Licznik w bazie, a nie w pamięci procesu, bo przy kilku instancjach
+/// każda liczyłaby po swojemu i limit dałoby się obejść zwykłym ponawianiem.
+model AuthAttempt {
+  id String @id @default(uuid()) @db.Uuid
+  /// Chroniona akcja: „login", „recover", „register", „password".
+  scope String @db.VarChar(20)
+  /// Adres IP z żądania plus podany e-mail albo identyfikator konta.
+  subject    String   @db.VarChar(200)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([scope, subject, created_at])
+  @@index([created_at])
+  @@map("auth_attempts")
+}
+
 /// Sesja logowania: w bazie leży wyłącznie SHA-256 tokenu z ciasteczka.
 model Session {
   token_hash String   @id
