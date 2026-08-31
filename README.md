@@ -191,6 +191,12 @@ Ikony i karty OG dostają białe tło, bo iOS podkłada pod ikonę czerń, launc
 i paski kart bywają ciemne, a karty w komunikatorach renderują się zależnie
 od motywu odbiorcy — a logo jest ciemne i na ciemnym tle by zniknęło.
 
+Favicon i `icon.png` dostają do tego zaokrąglone rogi: kartę przeglądarki rysuje
+sama przeglądarka, bez żadnej maski, więc białe tło zostaje w niej dokładnie
+takim kwadratem, jakim je zapiszemy. Ikona Apple i ikony manifestu zostają
+kanciaste — iOS i launchery Androida nakładają własną maskę, pod którą
+zaokrąglone rogi zrobiłyby dziury.
+
 Tarcza zegara jest w źródle przezroczysta, nie biała, i nie da się tego rozróżnić
 programowo: łączy się z tłem przez otwarcie w literze G, więc żaden algorytm nie
 odróżni jej od tła. Na jasnym tle wygląda dokładnie tak, jak powinna. Gdyby logo

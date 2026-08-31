@@ -378,9 +378,58 @@ function fit(img, box, width, height, marginPct, background = null) {
   return onCanvas(resample(img, box, w, h), width, height, background);
 }
 
+/**
+ * Ścina rogi płótna do zaokrąglonego kwadratu.
+ *
+ * Karta przeglądarki pokazuje favicon bez żadnej własnej maski, więc białe tło
+ * zostaje w niej dokładnie takim prostokątem, jakim je zapiszemy — a kanciasty
+ * kwadrat obok zaokrąglonych ikon reszty stron rzuca się w oczy. Krawędź liczymy
+ * z podpikseli: przy szesnastu próbkach na piksel przejście jest gładkie i nie
+ * trzeba do tego rasteryzatora.
+ *
+ * Systemy, które nakładają własną maskę (iOS, launchery Androida), dostają dalej
+ * pełny kwadrat — pod ich maską zaokrąglone rogi zostawiłyby dziury.
+ *
+ * @param {{width: number, height: number, data: Buffer}} image Obrazek do obcięcia.
+ * @param {number} radiusPct Promień jako ułamek krótszego boku.
+ * @returns {{width: number, height: number, data: Buffer}} Ten sam obrazek
+ *   z przezroczystymi rogami.
+ */
+function roundCorners(image, radiusPct) {
+  const { width, height, data } = image;
+  const r = Math.min(width, height) * radiusPct;
+  const SUB = 4;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let inside = 0;
+      for (let sy = 0; sy < SUB; sy++) {
+        for (let sx = 0; sx < SUB; sx++) {
+          const px = x + (sx + 0.5) / SUB;
+          const py = y + (sy + 0.5) / SUB;
+          const cx = Math.min(Math.max(px, r), width - r);
+          const cy = Math.min(Math.max(py, r), height - r);
+          const dx = px - cx;
+          const dy = py - cy;
+          if (dx * dx + dy * dy <= r * r) inside++;
+        }
+      }
+      if (inside === SUB * SUB) continue;
+
+      const d = (y * width + x) * 4;
+      data[d + 3] = Math.round((data[d + 3] * inside) / (SUB * SUB));
+    }
+  }
+
+  return image;
+}
+
 /* ------------------------------------------------------------------ wyjście */
 
 const BIEL = [255, 255, 255];
+
+/** Promień rogów favikony jako ułamek boku — tyle mniej więcej mają ikony aplikacji. */
+const ROG = 0.2;
 
 const logo = loadSource();
 const isInk = inkTest(logo);
@@ -397,7 +446,7 @@ console.log(`  sam znak:  ${mark.w}x${mark.h} @ ${mark.x},${mark.y}`);
 const targets = [
   ["src/app/opengraph-image.png", () => fit(logo, full, 1200, 630, 0.1, BIEL)],
   ["src/app/twitter-image.png", () => fit(logo, full, 1200, 630, 0.1, BIEL)],
-  ["src/app/icon.png", () => fit(logo, mark, 96, 96, 0.06, BIEL)],
+  ["src/app/icon.png", () => roundCorners(fit(logo, mark, 96, 96, 0.1, BIEL), ROG)],
   ["src/app/apple-icon.png", () => fit(logo, mark, 180, 180, 0.12, BIEL)],
   ["public/icon-512.png", () => fit(logo, mark, 512, 512, 0.12, BIEL)],
   ["public/icon-192.png", () => fit(logo, mark, 192, 192, 0.12, BIEL)],
@@ -412,6 +461,6 @@ for (const [path, build] of targets) {
 
 // favicon.ico ma pierwszeństwo przed icon.png w karcie przeglądarki,
 // więc musi nieść ten sam znak — inaczej zostaje po starym logo.
-const ico = encodeIco(fit(logo, mark, 64, 64, 0.06, BIEL), 64);
+const ico = encodeIco(roundCorners(fit(logo, mark, 64, 64, 0.1, BIEL), ROG), 64);
 writeFileSync("src/app/favicon.ico", ico);
 console.log(`  ${"src/app/favicon.ico".padEnd(32)} ${(ico.length / 1024).toFixed(1)} KB`);
