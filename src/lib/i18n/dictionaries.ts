@@ -178,7 +178,7 @@ const pl = {
   "meta.shared": "Przepracowane godziny i podsumowanie wyjazdu, udostępnione linkiem.",
 
   "notFound.title": "Nie ma takiej strony",
-  "notFound.lead": "Adres jest nieaktualny albo ma literówkę. Nic nie zginęło — Twoje dane są na miejscu.",
+  "notFound.lead": "Adres jest nieaktualny albo ma literówkę.",
   "notFound.redirectHome": "Za chwilę wrócisz na stronę główną.",
   "notFound.redirectApp": "Za chwilę wrócisz do aplikacji.",
   "notFound.goHome": "Wróć teraz na stronę główną",
@@ -607,7 +607,7 @@ const de: Dict = {
   "meta.shared": "Arbeitsstunden und Reisezusammenfassung, per Link geteilt.",
 
   "notFound.title": "Diese Seite gibt es nicht",
-  "notFound.lead": "Die Adresse ist veraltet oder enthält einen Tippfehler. Deine Daten sind unversehrt.",
+  "notFound.lead": "Die Adresse ist veraltet oder enthält einen Tippfehler.",
   "notFound.redirectHome": "Gleich geht es zurück zur Startseite.",
   "notFound.redirectApp": "Gleich geht es zurück in die App.",
   "notFound.goHome": "Jetzt zur Startseite",
@@ -1034,7 +1034,7 @@ const uk: Dict = {
   "meta.shared": "Відпрацьовані години та підсумок поїздки, поділені посиланням.",
 
   "notFound.title": "Такої сторінки немає",
-  "notFound.lead": "Адреса застаріла або містить помилку. Нічого не зникло — ваші дані на місці.",
+  "notFound.lead": "Адреса застаріла або містить помилку.",
   "notFound.redirectHome": "За мить повернемо вас на головну.",
   "notFound.redirectApp": "За мить повернемо вас до застосунку.",
   "notFound.goHome": "Повернутися на головну зараз",
@@ -1460,7 +1460,7 @@ const en: Dict = {
   "meta.shared": "Work hours and the trip summary, shared by link.",
 
   "notFound.title": "This page doesn't exist",
-  "notFound.lead": "The address is out of date or has a typo. Nothing is lost — your data is where you left it.",
+  "notFound.lead": "The address is out of date or has a typo.",
   "notFound.redirectHome": "Back to the home page in a moment.",
   "notFound.redirectApp": "Back to the app in a moment.",
   "notFound.goHome": "Go to the home page now",
