@@ -7,7 +7,7 @@ import { cache } from "react";
 import { getSessionUser } from "./auth";
 import { prisma } from "./db";
 import { isUuid } from "./ids";
-import { DASHBOARD_PATH } from "./routes";
+import { DASHBOARD_PATH, ROOT_PATH } from "./routes";
 import type { SessionUser } from "./types";
 
 /** Sesję czyta layout i strona w tym samym żądaniu — `cache` pyta bazę raz. */
@@ -23,6 +23,36 @@ export const getCurrentUser = cache(getSessionUser);
 export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser();
   if (!user) redirect("/logowanie");
+  return user;
+}
+
+/**
+ * Wymusza konto administracyjne aplikacji.
+ *
+ * Zwykłe konto odsyłamy na jego własny pulpit zamiast pokazywać błąd — panel
+ * roota nie ma prawa nawet potwierdzić, że istnieje.
+ *
+ * Returns:
+ *     Promise<SessionUser>: Konto root; każde inne kończy przekierowaniem.
+ */
+export const requireRoot = cache(async (): Promise<SessionUser> => {
+  const user = await requireUser();
+  if (!user.is_root) redirect(DASHBOARD_PATH);
+  return user;
+});
+
+/**
+ * Wymusza zwykłe konto użytkownika aplikacji.
+ *
+ * Root nie ma godzin, kosztów ani firmy, więc ekrany aplikacji pokazałyby mu
+ * same zera — jego miejscem jest panel administracyjny.
+ *
+ * Returns:
+ *     Promise<SessionUser>: Zalogowane konto niebędące rootem.
+ */
+export async function requireAppUser(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (user.is_root) redirect(ROOT_PATH);
   return user;
 }
 

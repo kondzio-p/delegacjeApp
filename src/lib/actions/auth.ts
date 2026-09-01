@@ -25,7 +25,7 @@ import {
   allowAttempt,
   forgetAttempts,
 } from "@/lib/rate-limit";
-import { WELCOME_PATH } from "@/lib/routes";
+import { ROOT_PATH, WELCOME_PATH } from "@/lib/routes";
 import { requireUser } from "@/lib/session";
 import type { ActionState } from "@/lib/types";
 
@@ -143,7 +143,14 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
 
   const user = await prisma.user.findUnique({
     where: { email: login },
-    select: { id: true, password_hash: true, is_deleted: true, locale: true },
+    select: {
+      id: true,
+      password_hash: true,
+      is_deleted: true,
+      is_blocked: true,
+      is_root: true,
+      locale: true,
+    },
   });
 
   // Ten sam komunikat dla nieznanego adresu, złego hasła i konta usuniętego —
@@ -156,12 +163,20 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   }
   if (!(await verifySecret(parsed.data.password, user.password_hash))) return invalid;
 
+  // O blokadzie mówimy dopiero po poprawnym haśle — komu innemu ta informacja
+  // i tak się nie należy, a zablokowany ma prawo wiedzieć, czemu nie wchodzi.
+  if (user.is_blocked) {
+    return fail("To konto zostało zablokowane przez właściciela aplikacji.");
+  }
+
   await forgetAttempts("login", login);
   await startSession(user.id);
   // Ciasteczko języka niesie wybór na ekrany bez sesji — po zalogowaniu
   // z nowego urządzenia trzeba je uzupełnić z konta.
   await rememberLocale(user.locale);
-  redirect(WELCOME_PATH);
+  // Root nie ma własnych godzin ani kwot, więc powitanie i pulpit nie mają mu
+  // czego pokazać — idzie prosto do panelu.
+  redirect(user.is_root ? ROOT_PATH : WELCOME_PATH);
 }
 
 /**

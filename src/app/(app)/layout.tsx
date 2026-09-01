@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/session";
+import { requireAppUser } from "@/lib/session";
 
 /**
  * Bramka logowania dla całej grupy tras.
@@ -10,6 +10,6 @@ import { requireUser } from "@/lib/session";
  *     ReactNode: Zawartość, gdy sesja jest ważna; inaczej przekierowanie.
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  await requireUser();
+  await requireAppUser();
   return <>{children}</>;
 }

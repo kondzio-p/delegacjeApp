@@ -92,6 +92,15 @@ export async function setOwnerModeAction(
     return { success: "Tryb właściciela wyłączony" };
   }
 
+  // Wyszarzony przełącznik niczego nie broni — formularz da się wysłać z konsoli,
+  // więc odmowa musi paść tutaj.
+  if (!user.can_own_company) {
+    return fail(
+      "Aby uzyskać dostęp rozszerzony, obejmujący zarządzanie firmą, skontaktuj się " +
+        "z właścicielem aplikacji.",
+    );
+  }
+
   const parsed = companyName.safeParse(formData.get("company_name"));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Podaj nazwę firmy");
 

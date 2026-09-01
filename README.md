@@ -156,7 +156,8 @@ spójna. Jest idempotentny — zastosowane migracje pomija.
 
 ```
 prisma/schema.prisma       model danych (users, companies, join_requests, sessions,
-                           auth_attempts, trips, work_entries, expenses, payouts)
+                           auth_attempts, root_audit_log, trips, work_entries,
+                           expenses, payouts)
 src/lib/auth.ts            hasła (scrypt), kod odzyskiwania, sesje w ciasteczku
 src/lib/session.ts         bramki dostępu: requireUser / requireOwner / findMyEmployee
 src/lib/db.ts              klient Prisma (adapter node-postgres)
@@ -169,7 +170,51 @@ src/app/(app)/             ekrany po zalogowaniu
 src/app/udostepnione/      publiczny podgląd wyjazdu spod linku
 src/app/not-found.tsx      ekran 404 wracający po trzech sekundach tam, skąd
                            użytkownik przyszedł
+src/app/root/              panel administracyjny (konto root)
+src/lib/actions/root.ts    akcje roota, każda pisze do dziennika
 ```
+
+## Konto root i panel administracyjny
+
+Panel pod `/root` obsługuje jedno konto oznaczone `users.is_root`. Root nie jest
+ani pracownikiem, ani właścicielem firmy: nie ma godzin, kosztów ani pulpitu,
+a po zalogowaniu trafia prosto do panelu. Zwykłe konto pod `/root` dostaje
+przekierowanie na własny pulpit — panel nie potwierdza nawet, że istnieje.
+
+```bash
+npm run root:create      # ROOT_EMAIL i ROOT_PASSWORD ze środowiska
+```
+
+Skrypt zakłada albo aktualizuje konto, ustawia wymuszoną zmianę hasła i wypisuje
+raz kod odzyskiwania. Hasło nie zapisuje się nigdzie poza hashem w bazie —
+dlatego skrypt, a nie wpis w migracji.
+
+**Co root może:** przeglądać konta i firmy, nadawać i odbierać *dostęp
+rozszerzony* (prawo do prowadzenia firmy), blokować konta, nadawać hasła
+jednorazowe, wylogowywać ze wszystkich urządzeń, zmieniać nazwę firmy,
+przekazywać ją współwłaścicielowi i rozwiązywać, a także czyścić licznik prób
+logowania komuś, kto zablokował się literówkami.
+
+**Czego root nie może — i to jest decyzja, nie brak:**
+
+- nie widzi kwot: kosztów, wypłat ani stawek. Aplikacja obiecuje pracownikowi
+  w ustawieniach, że jego koszty widzi tylko on, więc panel ich nie pokazuje;
+- nie zaloguje się jako ktoś inny;
+- nie tknie własnego konta — zablokowanie siebie zamknęłoby jedyne wejście.
+
+Każda operacja ląduje w `root_audit_log` i nie da się jej stamtąd usunąć.
+
+Odebranie dostępu komuś, kto prowadzi firmę, wymaga decyzji, co z tą firmą:
+zostawić (nie założy kolejnej), przekazać najstarszemu współwłaścicielowi albo
+rozwiązać. Samo zdjęcie flagi zostawiłoby zespół bez opieki.
+
+Konto bez dostępu rozszerzonego widzi w ustawieniach wyszarzony przełącznik
+i prośbę o kontakt z właścicielem aplikacji. Odmowa pada też po stronie serwera,
+bo sam wyszarzony przycisk niczego nie broni.
+
+Panel jest wyłącznie po polsku i nie przechodzi przez słowniki — ogląda go jedna
+osoba. Komunikaty widoczne dla użytkowników aplikacji są tłumaczone jak reszta
+interfejsu.
 
 **Bezpieczeństwo.** `safetyplan.md` opisuje zakres i wyniki audytu: co zostało
 sprawdzone, co poprawione i co świadomie zostawione. Nagłówki bezpieczeństwa

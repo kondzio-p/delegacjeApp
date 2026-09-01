@@ -57,6 +57,11 @@ export type SessionUser = {
   /** Język interfejsu — źródło prawdy, ciasteczko jest tylko nośnikiem. */
   locale: string;
   is_deleted: boolean;
+  /** Konto administracyjne aplikacji. */
+  is_root: boolean;
+  /** Dostęp rozszerzony: wolno włączyć tryb właściciela firmy. */
+  can_own_company: boolean;
+  is_blocked: boolean;
 };
 
 /** Wynik akcji formularza — wspólny kształt dla useActionState. */

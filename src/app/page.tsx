@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getSessionUser } from "@/lib/auth";
-import { DASHBOARD_PATH } from "@/lib/routes";
+import { homePathFor } from "@/lib/routes";
 
 import { LandingScreen } from "./landing-screen";
 
@@ -17,7 +17,7 @@ import { LandingScreen } from "./landing-screen";
  */
 export default async function HomePage() {
   const user = await getSessionUser();
-  if (user) redirect(DASHBOARD_PATH);
+  if (user) redirect(homePathFor(user));
 
   return <LandingScreen />;
 }

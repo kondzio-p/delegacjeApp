@@ -720,6 +720,9 @@ function CompanySection({ user, status }: { user: SessionUser; status: CompanySt
   // Współwłaściciel niczego nie kasuje — może tylko odejść, i tak brzmi opis.
   const isCoOwner = status.coOwnedCompanyName !== null;
   const hasCompany = status.ownCompanyName !== null;
+  // Dostęp rozszerzony odbiera root. Wyszarzony przełącznik to sama informacja —
+  // odmowa i tak pada po stronie serwera.
+  const locked = !user.can_own_company;
 
   return (
     <section className="mt-4 rounded-2xl bg-card p-4">
@@ -740,21 +743,33 @@ function CompanySection({ user, status }: { user: SessionUser; status: CompanySt
           <button
             type="button"
             role="switch"
-            aria-checked={wantsOwner}
+            aria-checked={locked ? false : wantsOwner}
+            aria-disabled={locked}
+            disabled={locked}
             onClick={() => setWantsOwner((v) => !v)}
             className={`flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors ${
-              wantsOwner ? "bg-primary" : "bg-card"
+              locked
+                ? "cursor-not-allowed bg-border opacity-70"
+                : wantsOwner
+                  ? "bg-primary"
+                  : "bg-card"
             }`}
           >
             <span
-              className={`h-5 w-5 rounded-full bg-foreground transition-transform ${
-                wantsOwner ? "translate-x-5" : "translate-x-0"
-              }`}
+              className={`h-5 w-5 rounded-full transition-transform ${
+                locked ? "bg-muted-foreground" : "bg-foreground"
+              } ${wantsOwner && !locked ? "translate-x-5" : "translate-x-0"}`}
             />
           </button>
         </div>
 
-        <form action={ownerAction} className="mt-3 space-y-3">
+        {locked && (
+          <p className="mt-3 rounded-lg bg-card px-3 py-2 text-xs text-muted-foreground">
+            {t("settings.ownerModeLocked")}
+          </p>
+        )}
+
+        <form action={ownerAction} className="mt-3 space-y-3" hidden={locked}>
           <input type="hidden" name="enabled" value={String(wantsOwner)} />
 
           {wantsOwner ? (

@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
+    "root:create": "node --env-file-if-exists=.env ./scripts/create-root.mjs",
     "postinstall": "prisma generate"
   },
   "dependencies": {

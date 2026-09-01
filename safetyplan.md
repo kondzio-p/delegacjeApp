@@ -277,6 +277,21 @@ Po komplecie poprawek: `npm run typecheck`, `npm run lint`, `npm test`
 Zbudowana aplikacja odpalona lokalnie odsyła komplet nagłówków bezpieczeństwa,
 a wcześniej wywrotne adresy odpowiadają poprawnie.
 
+## Dopisane później: konto root
+
+Panel administracyjny (`/root`) powstał po tym audycie. Założenia, które go
+dotyczą, są zgodne z powyższymi ustaleniami:
+
+- bramka `requireRoot()` po stronie serwera na każdym ekranie panelu, a nie samo
+  ukrycie odnośników;
+- root nie ma wglądu w kwoty — minimalizacja danych z RODO i zgodność z tym,
+  co aplikacja obiecuje pracownikom;
+- brak logowania się jako inny użytkownik;
+- każda operacja w dzienniku `root_audit_log`, bez kasowania z panelu;
+- odebranie dostępu rozszerzonego jest egzekwowane w `setOwnerModeAction`,
+  a nie tylko wyszarzeniem przełącznika;
+- konto root podlega temu samemu limitowi prób logowania co reszta.
+
 ## Do rozważenia poza tą sesją
 
 1. CSP z nonce przez `proxy.ts` zamiast `unsafe-inline` (S-4).

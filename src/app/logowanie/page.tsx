@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { AuthForm } from "./auth-form";
 import { getSessionUser } from "@/lib/auth";
-import { DASHBOARD_PATH } from "@/lib/routes";
+import { homePathFor } from "@/lib/routes";
 
 export function generateMetadata(): Promise<Metadata> {
   return pageMetadata("auth.login", "meta.login");
@@ -28,7 +28,7 @@ export default async function LoginPage({
 }) {
   // Kto ma ważną sesję, nie powinien oglądać formularza logowania.
   const user = await getSessionUser();
-  if (user) redirect(DASHBOARD_PATH);
+  if (user) redirect(homePathFor(user));
 
   // Tryb przychodzi w adresie, żeby przycisk zakładania konta nie lądował
   // na zakładce logowania.

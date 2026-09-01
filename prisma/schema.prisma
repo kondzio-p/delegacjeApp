@@ -31,6 +31,14 @@ model User {
   locale               String   @default("pl") @db.VarChar(5)
   /// Konto zanonimizowane — godziny i wypłaty zostają jako zapis rozliczenia.
   is_deleted           Boolean  @default(false)
+  /// Konto administracyjne aplikacji: zarządza kontami i firmami, samo nie ma
+  /// ani firmy, ani godzin, ani kwot.
+  is_root              Boolean  @default(false)
+  /// Dostęp rozszerzony: pozwala włączyć tryb właściciela i prowadzić firmę.
+  /// Odbiera go root; istniejące konta zachowują dostęp.
+  can_own_company      Boolean  @default(true)
+  /// Konto zablokowane przez roota — zostaje w bazie, ale nie da się zalogować.
+  is_blocked           Boolean  @default(false)
   created_at           DateTime @default(now()) @db.Timestamptz(6)
 
   company          Company?         @relation("CompanyEmployees", fields: [company_id], references: [id], onDelete: SetNull)
@@ -107,6 +115,26 @@ model CoOwnerInvite {
   @@id([company_id, user_id])
   @@index([user_id])
   @@map("co_owner_invites")
+}
+
+/// Dziennik działań roota: kto, co i na kim.
+///
+/// Bez kluczy obcych i bez kasowania z panelu — to zapis zdarzeń, a nie encja.
+/// Nazwę celu trzymamy osobno w `target_label`, żeby wpis dało się przeczytać
+/// także po rozwiązaniu firmy albo anonimizacji konta.
+model RootAuditLog {
+  id       String @id @default(uuid()) @db.Uuid
+  actor_id String @db.Uuid
+  /// Kod akcji, np. „company_access_off" albo „user_password_reset".
+  action       String  @db.VarChar(40)
+  target_id    String? @db.Uuid
+  target_label String? @db.VarChar(200)
+  /// Jednozdaniowy opis dla człowieka czytającego dziennik.
+  detail     String?  @db.VarChar(300)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([created_at])
+  @@map("root_audit_log")
 }
 
 /// Próba logowania, odzyskiwania hasła albo rejestracji — jeden wiersz na jedną

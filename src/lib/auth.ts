@@ -35,6 +35,9 @@ export const SESSION_USER_SELECT = {
   display_currency: true,
   locale: true,
   is_deleted: true,
+  is_root: true,
+  can_own_company: true,
+  is_blocked: true,
 } as const;
 
 /* --------------------------------------------------------------- hasła */
@@ -272,7 +275,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     return null;
   }
 
-  if (session.user.is_deleted) {
+  // Konto zanonimizowane albo zablokowane — żywa sesja nie może go wskrzesić.
+  if (session.user.is_deleted || session.user.is_blocked) {
     await prisma.session.deleteMany({ where: { user_id: session.user.id } });
     return null;
   }
