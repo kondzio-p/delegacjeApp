@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { LogOut, ShieldCheck } from "lucide-react";
 
 import { logoutAction } from "@/lib/actions/auth";
 import { requireRoot } from "@/lib/session";
+
+import { RootNav } from "./root-nav";
 
 // Panel jest po polsku i nie przechodzi przez słowniki: ogląda go jeden
 // człowiek — właściciel aplikacji. Cztery tłumaczenia napisów administracyjnych
@@ -14,12 +15,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const NAV = [
-  { href: "/root", label: "Przegląd i konta" },
-  { href: "/root/firmy", label: "Firmy" },
-  { href: "/root/bezpieczenstwo", label: "Bezpieczeństwo" },
-  { href: "/root/dziennik", label: "Dziennik" },
-];
 
 /**
  * Powłoka panelu administracyjnego.
@@ -56,17 +51,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </form>
         </div>
 
-        <nav className="mx-auto flex max-w-5xl gap-2 overflow-x-auto px-4 pb-3">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="shrink-0 rounded-xl bg-secondary px-4 py-2 text-sm font-medium"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <RootNav />
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>

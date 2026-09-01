@@ -1,10 +1,10 @@
 "use client";
 
-import { KeyRound, Lock, LogOut, Search, Unlock } from "lucide-react";
+import { KeyRound, Loader2, Lock, LogOut, Unlock } from "lucide-react";
 import { useActionState, useState } from "react";
 
-import { useAction } from "@/components/use-action";
 import { FormMessage, Modal } from "@/components/ui";
+import { useAction } from "@/components/use-action";
 import {
   resetUserPasswordAction,
   setCompanyAccessAction,
@@ -12,170 +12,46 @@ import {
   signOutUserAction,
   type RootPasswordState,
 } from "@/lib/actions/root";
-import type { RootUserRow, UserFilter } from "@/lib/queries-root";
-
-const FILTER_LABELS: Record<UserFilter, string> = {
-  all: "Wszystkie",
-  owners: "Właściciele",
-  employees: "Pracownicy",
-  noCompany: "Bez firmy",
-  blocked: "Zablokowane",
-  deleted: "Usunięte",
-};
+import type { RootUserRow } from "@/lib/queries-root";
 
 const EMPTY_PASSWORD: RootPasswordState = {};
 
 /**
- * Dzień z zapisu ISO — w panelu wystarczy data bez godziny.
+ * Podpis roli konta na karcie.
  *
  * Args:
- *     iso (string): Moment w zapisie ISO.
+ *     user (RootUserRow): Konto do opisania.
  *
  * Returns:
- *     string: Dzień „YYYY-MM-DD".
+ *     string: Zdanie o tym, kim ta osoba jest w aplikacji.
  */
-function day(iso: string): string {
-  return iso.slice(0, 10);
+function roleOf(user: RootUserRow): string {
+  if (!user.isOwner) return user.employerName ? `Pracownik: ${user.employerName}` : "Bez firmy";
+  if (user.ownedCompany) return `Właściciel: ${user.ownedCompany.name}`;
+  if (user.coOwnedName) return `Współwłaściciel: ${user.coOwnedName}`;
+  return "Właściciel bez firmy";
 }
 
 /**
- * Lista kont z wyszukiwarką, filtrami i akcjami roota.
- *
- * Args:
- *     users (RootUserRow[]): Konta pasujące do bieżącego filtru.
- *     search (string): Fraza wpisana w wyszukiwarkę.
- *     filter (UserFilter): Aktywny filtr listy.
- *
- * Returns:
- *     ReactNode: Sekcja z kontami.
- */
-export function UsersScreen({
-  users,
-  search,
-  filter,
-}: {
-  users: RootUserRow[];
-  search: string;
-  filter: UserFilter;
-}) {
-  const [passwordState, resetPassword] = useActionState(
-    resetUserPasswordAction,
-    EMPTY_PASSWORD,
-  );
-
-  return (
-    <section className="mt-6">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        Konta
-      </h2>
-
-      <form method="get" action="/root" className="mt-3 flex gap-2">
-        <input type="hidden" name="filtr" value={filter} />
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            name="q"
-            defaultValue={search}
-            maxLength={120}
-            placeholder="Szukaj po adresie e-mail albo imieniu"
-            className="input-field pl-9"
-          />
-        </div>
-        <button
-          type="submit"
-          className="h-12 shrink-0 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground"
-        >
-          Szukaj
-        </button>
-      </form>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        {(Object.keys(FILTER_LABELS) as UserFilter[]).map((key) => {
-          const query = new URLSearchParams({ filtr: key, ...(search ? { q: search } : {}) });
-          return (
-            <a
-              key={key}
-              href={`/root?${query.toString()}`}
-              className={`rounded-xl px-3 py-2 text-sm font-medium ${
-                key === filter ? "bg-primary text-primary-foreground" : "bg-secondary"
-              }`}
-            >
-              {FILTER_LABELS[key]}
-            </a>
-          );
-        })}
-      </div>
-
-      <div className="mt-4 space-y-3">
-        {users.length === 0 ? (
-          <p className="rounded-2xl bg-card p-6 text-center text-sm text-muted-foreground">
-            Żadne konto nie pasuje do tego wyszukiwania.
-          </p>
-        ) : (
-          users.map((user) => (
-            <UserCard key={user.id} user={user} onResetPassword={resetPassword} />
-          ))
-        )}
-      </div>
-
-      {passwordState.password && (
-        <Modal title="Hasło jednorazowe" onClose={() => window.location.reload()}>
-          <p className="text-sm text-muted-foreground">
-            Przekaż je osobie {passwordState.userLabel}. Przy najbliższym logowaniu aplikacja
-            poprosi o ustawienie własnego hasła, a wszystkie dotychczasowe sesje tego konta
-            zostały zakończone.
-          </p>
-          <p className="rounded-xl bg-secondary p-4 text-center font-mono text-2xl font-bold tracking-widest">
-            {passwordState.password}
-          </p>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="flex h-12 w-full items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground"
-          >
-            Zapisałem hasło
-          </button>
-        </Modal>
-      )}
-
-      <FormMessage error={passwordState.error} />
-    </section>
-  );
-}
-
-/**
- * Pojedyncze konto razem z akcjami.
+ * Konto razem z akcjami roota.
  *
  * Args:
  *     user (RootUserRow): Konto do pokazania.
- *     onResetPassword ((formData: FormData) => void): Akcja nadająca hasło jednorazowe.
  *
  * Returns:
  *     ReactNode: Karta konta.
  */
-function UserCard({
-  user,
-  onResetPassword,
-}: {
-  user: RootUserRow;
-  onResetPassword: (formData: FormData) => void;
-}) {
+export function UserCard({ user }: { user: RootUserRow }) {
   const [accessState, accessAction, accessPending] = useAction(setCompanyAccessAction, {
     toastError: true,
   });
   const [, blockAction, blockPending] = useAction(setUserBlockedAction, { toastError: true });
   const [, signOutAction, signOutPending] = useAction(signOutUserAction, { toastError: true });
+  const [passwordState, resetPassword, resetPending] = useActionState(
+    resetUserPasswordAction,
+    EMPTY_PASSWORD,
+  );
   const [askAboutCompany, setAskAboutCompany] = useState(false);
-
-  const role = user.isOwner
-    ? user.ownedCompany
-      ? `Właściciel: ${user.ownedCompany.name}`
-      : user.coOwnedName
-        ? `Współwłaściciel: ${user.coOwnedName}`
-        : "Właściciel bez firmy"
-    : user.employerName
-      ? `Pracownik: ${user.employerName}`
-      : "Bez firmy";
 
   return (
     <article className="rounded-2xl bg-card p-4">
@@ -192,7 +68,7 @@ function UserCard({
       </div>
 
       <p className="mt-2 text-xs text-muted-foreground">
-        {role} · sesje: {user.sessions} · konto od {day(user.createdAt)}
+        {roleOf(user)} · sesje: {user.sessions} · konto od {user.createdAt.slice(0, 10)}
       </p>
 
       <div className="mt-3 flex items-start justify-between gap-3 rounded-xl bg-secondary p-3">
@@ -242,9 +118,13 @@ function UserCard({
       <FormMessage error={accessState.error} />
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <form action={onResetPassword}>
+        <form action={resetPassword}>
           <input type="hidden" name="user_id" value={user.id} />
-          <ActionButton icon={<KeyRound className="h-4 w-4 shrink-0" />} label="Hasło jednorazowe" />
+          <ActionButton
+            icon={<KeyRound className="h-4 w-4 shrink-0" />}
+            label="Hasło jednorazowe"
+            pending={resetPending}
+          />
         </form>
 
         <form action={signOutAction}>
@@ -274,6 +154,28 @@ function UserCard({
           />
         </form>
       </div>
+
+      <FormMessage error={passwordState.error} />
+
+      {passwordState.password && (
+        <Modal title="Hasło jednorazowe" onClose={() => window.location.reload()}>
+          <p className="text-sm text-muted-foreground">
+            Przekaż je osobie {passwordState.userLabel}. Przy najbliższym logowaniu aplikacja
+            poprosi o ustawienie własnego hasła, a dotychczasowe sesje tego konta zostały
+            zakończone.
+          </p>
+          <p className="rounded-xl bg-secondary p-4 text-center font-mono text-2xl font-bold tracking-widest">
+            {passwordState.password}
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="flex h-12 w-full items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground"
+          >
+            Zapisałem hasło
+          </button>
+        </Modal>
+      )}
 
       {askAboutCompany && user.ownedCompany && (
         <Modal title={`Firma ${user.ownedCompany.name}`} onClose={() => setAskAboutCompany(false)}>
@@ -343,7 +245,7 @@ function Badge({
  * Args:
  *     icon (React.ReactNode): Ikona przycisku.
  *     label (string): Napis na przycisku.
- *     pending (boolean): Czy akcja trwa.
+ *     pending (boolean): Czy akcja trwa — wtedy zamiast ikony kręci się kółko.
  *     disabled (boolean): Czy akcja nie ma dziś sensu.
  *     tone ("default" | "destructive"): Kolor napisu.
  *
@@ -371,7 +273,7 @@ function ActionButton({
         tone === "destructive" ? "text-destructive" : ""
       }`}
     >
-      {icon}
+      {pending ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : icon}
       {label}
     </button>
   );
